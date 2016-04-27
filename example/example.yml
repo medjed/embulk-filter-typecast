@@ -1,0 +1,29 @@
+in:
+  type: file
+  path_prefix: example/example.csv
+  parser:
+    type: csv
+    charset: UTF-8
+    newline: CRLF
+    null_string: 'NULL'
+    skip_header_lines: 1
+    comment_line_marker: '#'
+    columns:
+      - {name: timestamp, type: timestamp, format: "%Y-%m-%d %H:%M:%S.%N", timezone: "+09:00"}
+      - {name: "null",    type: string}
+      - {name: long,      type: long}
+      - {name: string,    type: string}
+      - {name: double,    type: double}
+      - {name: json,      type: json}
+      - {name: boolean,   type: boolean}
+filters:
+  - type: typecast
+    columns:
+      - {name: timestamp, type: string, format: "%Y-%m-%d %H:%M:%S.%N", timezone: "+09:00"}
+      - {name: long,      type: string}
+      - {name: string,    type: string}
+      - {name: double,    type: string}
+      - {name: json,      type: string}
+      - {name: boolean,   type: string}
+out:
+  type: "null"
