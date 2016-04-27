@@ -14,7 +14,8 @@ in:
       - {name: long,      type: long}
       - {name: string,    type: string}
       - {name: double,    type: double}
-      - {name: json,      type: json}
+      - {name: json1,     type: json}
+      - {name: json2,     type: json}
       - {name: boolean,   type: boolean}
 filters:
   - type: typecast
@@ -23,7 +24,10 @@ filters:
       - {name: long,      type: string}
       - {name: string,    type: string}
       - {name: double,    type: string}
-      - {name: json,      type: string}
+      - {name: json1,     type: string}
+      - {name: json2,     type: string}
       - {name: boolean,   type: string}
+      - {name: "$.json1.string", type: string}
+      - {name: "$.json2.long",   type: string}
 out:
   type: "null"
