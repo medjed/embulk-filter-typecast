@@ -1,7 +1,7 @@
 package org.embulk.filter.typecast;
 
-import com.google.common.base.Throwables;
 import org.embulk.spi.*;
+import org.embulk.spi.type.Type;
 import org.msgpack.value.ArrayValue;
 import org.msgpack.value.MapValue;
 import org.msgpack.value.Value;
@@ -17,7 +17,7 @@ import org.slf4j.Logger;
 
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
+import java.util.Map;
 
 public class ColumnVisitorImpl
         implements ColumnVisitor
@@ -31,7 +31,8 @@ public class ColumnVisitorImpl
     private final HashMap<String, Column> outputColumnMap = new HashMap<>();
     private final HashMap<String, TimestampParser> timestampParserMap = new HashMap<>();
     private final HashMap<String, TimestampFormatter> timestampFormatterMap = new HashMap<>();
-    private final HashSet<String> shouldVisitRecursivelySet = new HashSet<>();
+    private final HashSet<String> shouldVisitJsonPathSet = new HashSet<>();
+    private final HashMap<String, Type> jsonPathTypeMap = new HashMap<>();
 
     ColumnVisitorImpl(PluginTask task, Schema inputSchema, Schema outputSchema,
                       PageReader pageReader, PageBuilder pageBuilder)
@@ -45,7 +46,8 @@ public class ColumnVisitorImpl
         buildOutputColumnMap();
         buildTimestampParserMap();
         buildTimestampFormatterMap();
-        buildShouldVisitRecursivelySet();;
+        buildShouldVisitJsonPathSet();;
+        buildJsonPathTypeMap();
     }
 
     private void buildOutputColumnMap()
@@ -61,7 +63,7 @@ public class ColumnVisitorImpl
         // columnName or jsonPath => TimestampParser
         for (ColumnConfig columnConfig : task.getColumns()) {
             TimestampParser parser = getTimestampParser(columnConfig, task);
-            this.timestampParserMap.put(columnConfig.getName(), parser); // NOTE: value would be null
+            this.timestampParserMap.put(columnConfig.getName(), parser);
         }
     }
 
@@ -77,7 +79,7 @@ public class ColumnVisitorImpl
         // columnName or jsonPath => TimestampFormatter
         for (ColumnConfig columnConfig : task.getColumns()) {
             TimestampFormatter parser = getTimestampFormatter(columnConfig, task);
-            this.timestampFormatterMap.put(columnConfig.getName(), parser); // NOTE: value would be null
+            this.timestampFormatterMap.put(columnConfig.getName(), parser);
         }
     }
 
@@ -88,7 +90,7 @@ public class ColumnVisitorImpl
         return new TimestampFormatter(task.getJRuby(), format, timezone);
     }
 
-    private void buildShouldVisitRecursivelySet()
+    private void buildShouldVisitJsonPathSet()
     {
         // json partial path => Boolean to avoid unnecessary type: json visit
         for (ColumnConfig columnConfig : task.getColumns()) {
@@ -102,23 +104,88 @@ public class ColumnVisitorImpl
                 if (parts[i].contains("[")) {
                     String[] arrayParts = parts[i].split("\\[");
                     partialPath.append(".").append(arrayParts[0]);
-                    this.shouldVisitRecursivelySet.add(partialPath.toString());
+                    this.shouldVisitJsonPathSet.add(partialPath.toString());
                     for (int j = 1; j < arrayParts.length; j++) {
                         partialPath.append("[").append(arrayParts[j]);
-                        this.shouldVisitRecursivelySet.add(partialPath.toString());
+                        this.shouldVisitJsonPathSet.add(partialPath.toString());
                     }
                 }
                 else {
                     partialPath.append(".").append(parts[i]);
-                    this.shouldVisitRecursivelySet.add(partialPath.toString());
+                    this.shouldVisitJsonPathSet.add(partialPath.toString());
                 }
             }
         }
     }
 
-    private boolean shouldVisitRecursively(String name)
+    private void buildJsonPathTypeMap()
     {
-        return shouldVisitRecursivelySet.contains(name);
+        // json path => Type
+        for (ColumnConfig columnConfig : task.getColumns()) {
+            String name = columnConfig.getName();
+            if (!name.startsWith("$.")) {
+                continue;
+            }
+            Type type = columnConfig.getType();
+            this.jsonPathTypeMap.put(name, type);
+        }
+    }
+
+    private boolean shouldVisitJsonPath(String jsonPath)
+    {
+        return shouldVisitJsonPathSet.contains(jsonPath);
+    }
+
+    private Value castJsonRecursively(PluginTask task, String jsonPath, Value value)
+    {
+        if (!shouldVisitJsonPath(jsonPath)) {
+            return value;
+        }
+        if (value.isArrayValue()) {
+            ArrayValue arrayValue = value.asArrayValue();
+            int size = arrayValue.size();
+            Value[] newValue = new Value[size];
+            for (int i = 0; i < size; i++) {
+                String k = new StringBuilder(jsonPath).append("[").append(Integer.toString(i)).append("]").toString();
+                Value v = arrayValue.get(i);
+                newValue[i] = castJsonRecursively(task, k, v);
+            }
+            return ValueFactory.newArray(newValue, true);
+        }
+        else if (value.isMapValue()) {
+            MapValue mapValue = value.asMapValue();
+            int size = mapValue.size() * 2;
+            Value[] newValue = new Value[size];
+            int i = 0;
+            for (Map.Entry<Value, Value> entry : mapValue.entrySet()) {
+                Value k = entry.getKey();
+                Value v = entry.getValue();
+                String newPath = new StringBuilder(jsonPath).append(".").append(k.asStringValue().asString()).toString();
+                Value r = castJsonRecursively(task, newPath, v);
+                newValue[i++] = k;
+                newValue[i++] = r;
+            }
+            return ValueFactory.newMap(newValue, true);
+        }
+        else if (value.isBooleanValue()) {
+            Type outputType = jsonPathTypeMap.get(jsonPath);
+            return TypecastJsonBuilder.getFromBoolean(outputType, value.asBooleanValue().getBoolean());
+        }
+        else if (value.isIntegerValue()) {
+            Type outputType = jsonPathTypeMap.get(jsonPath);
+            return TypecastJsonBuilder.getFromLong(outputType, value.asIntegerValue().asLong());
+        }
+        else if (value.isFloatValue()) {
+            Type outputType = jsonPathTypeMap.get(jsonPath);
+            return TypecastJsonBuilder.getFromDouble(outputType, value.asFloatValue().toDouble());
+        }
+        else if (value.isStringValue()) {
+            Type outputType = jsonPathTypeMap.get(jsonPath);
+            return TypecastJsonBuilder.getFromString(outputType, value.asStringValue().asString());
+        }
+        else {
+            return value;
+        }
     }
 
     private interface PageBuildable
@@ -211,13 +278,15 @@ public class ColumnVisitorImpl
     @Override
     public void jsonColumn(final Column inputColumn)
     {
+        String jsonPath = new StringBuilder("$.").append(inputColumn.getName()).toString();
+        Value value = pageReader.getJson(inputColumn);
+        final Value castedValue = castJsonRecursively(task, jsonPath, value);
         final Column outputColumn = outputColumnMap.get(inputColumn.getName());
         PageBuildable op = new PageBuildable() {
             public void run() throws DataException {
-                TypecastPageBuilder.setFromJson(pageBuilder, outputColumn, pageReader.getJson(inputColumn));
+                TypecastPageBuilder.setFromJson(pageBuilder, outputColumn, castedValue);
             }
         };
         withStopOnInvalidRecord(op, inputColumn, outputColumn);
     }
-
 }
