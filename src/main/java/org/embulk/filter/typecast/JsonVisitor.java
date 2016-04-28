@@ -1,14 +1,15 @@
 package org.embulk.filter.typecast;
 
-import org.embulk.spi.*;
+import org.embulk.filter.typecast.TypecastFilterPlugin.ColumnConfig;
+import org.embulk.filter.typecast.TypecastFilterPlugin.PluginTask;
+
+import org.embulk.spi.Exec;
+import org.embulk.spi.Schema;
 import org.embulk.spi.type.Type;
 import org.msgpack.value.ArrayValue;
 import org.msgpack.value.MapValue;
 import org.msgpack.value.Value;
 import org.msgpack.value.ValueFactory;
-
-import org.embulk.filter.typecast.TypecastFilterPlugin.ColumnConfig;
-import org.embulk.filter.typecast.TypecastFilterPlugin.PluginTask;
 
 import org.slf4j.Logger;
 

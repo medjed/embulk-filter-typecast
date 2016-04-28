@@ -1,10 +1,13 @@
 package org.embulk.filter.typecast.cast;
 
-import org.embulk.spi.time.Timestamp;
 import org.embulk.spi.DataException;
+import org.embulk.spi.time.Timestamp;
 import org.msgpack.value.Value;
 
-public class BooleanCast {
+public class BooleanCast
+{
+    private BooleanCast() {}
+
     private static String buildErrorMessage(String as, boolean value)
     {
         return String.format("cannot cast double to %s: \"%s\"", as, value);

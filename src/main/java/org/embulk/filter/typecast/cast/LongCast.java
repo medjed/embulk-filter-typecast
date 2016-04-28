@@ -1,10 +1,13 @@
 package org.embulk.filter.typecast.cast;
 
-import org.embulk.spi.time.Timestamp;
 import org.embulk.spi.DataException;
+import org.embulk.spi.time.Timestamp;
 import org.msgpack.value.Value;
 
-public class LongCast {
+public class LongCast
+{
+    private LongCast() {}
+
     private static String buildErrorMessage(String as, long value)
     {
         return String.format("cannot cast long to %s: \"%s\"", as, value);
@@ -30,7 +33,7 @@ public class LongCast {
 
     public static double asDouble(long value) throws DataException
     {
-        return (double)value;
+        return (double) value;
     }
 
     public static String asString(long value) throws DataException

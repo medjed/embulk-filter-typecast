@@ -2,14 +2,15 @@ package org.embulk.filter.typecast.cast;
 
 import com.google.common.collect.ImmutableSet;
 import org.embulk.spi.DataException;
-import org.embulk.spi.json.JsonParser;
 import org.embulk.spi.json.JsonParseException;
+import org.embulk.spi.json.JsonParser;
 import org.embulk.spi.time.Timestamp;
-import org.embulk.spi.time.TimestampParser;
 import org.embulk.spi.time.TimestampParseException;
+import org.embulk.spi.time.TimestampParser;
 import org.msgpack.value.Value;
 
-public class StringCast {
+public class StringCast
+{
     private static final JsonParser jsonParser = new JsonParser();
 
     // copy from csv plugin
@@ -29,6 +30,7 @@ public class StringCast {
                     "off", "Off", "OFF",
                     "0");
 
+    private StringCast() {}
 
     private static String buildErrorMessage(String as, String value)
     {

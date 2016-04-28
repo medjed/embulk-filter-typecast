@@ -4,7 +4,10 @@ import org.embulk.spi.DataException;
 import org.embulk.spi.time.Timestamp;
 import org.msgpack.value.Value;
 
-public class JsonCast {
+public class JsonCast
+{
+    private JsonCast() {}
+
     private static String buildErrorMessage(String as, Value value)
     {
         return String.format("cannot cast String to %s: \"%s\"", as, value);

@@ -1,15 +1,19 @@
 package org.embulk.filter.typecast;
 
-import org.embulk.spi.*;
-
 import org.embulk.filter.typecast.TypecastFilterPlugin.PluginTask;
 
+import org.embulk.spi.Column;
+import org.embulk.spi.ColumnVisitor;
+import org.embulk.spi.DataException;
+import org.embulk.spi.Exec;
+import org.embulk.spi.PageBuilder;
+import org.embulk.spi.PageReader;
+import org.embulk.spi.Schema;
 import org.slf4j.Logger;
 
 import java.util.HashMap;
 
-public class ColumnVisitorImpl
-        implements ColumnVisitor
+class ColumnVisitorImpl implements ColumnVisitor
 {
     private static final Logger logger = Exec.getLogger(TypecastFilterPlugin.class);
     private final PluginTask task;
@@ -44,20 +48,24 @@ public class ColumnVisitorImpl
 
     private interface PageBuildable
     {
-        public void run() throws DataException;
+        void run() throws DataException;
     }
 
-    private void withStopOnInvalidRecord(final PageBuildable op, final Column inputColumn, final Column outputColumn) throws DataException {
+    private void withStopOnInvalidRecord(final PageBuildable op, final Column inputColumn, final Column outputColumn)
+            throws DataException
+    {
         if (pageReader.isNull(inputColumn)) {
             pageBuilder.setNull(outputColumn);
         }
         else {
             if (task.getStopOnInvalidRecord()) {
                 op.run();
-            } else {
+            }
+            else {
                 try {
                     op.run();
-                } catch (final DataException ex) {
+                }
+                catch (final DataException ex) {
                     logger.warn(ex.getMessage());
                     pageBuilder.setNull(outputColumn);
                 }
@@ -70,7 +78,8 @@ public class ColumnVisitorImpl
     {
         final Column outputColumn = outputColumnMap.get(inputColumn.getName());
         PageBuildable op = new PageBuildable() {
-            public void run() throws DataException {
+            public void run() throws DataException
+            {
                 columnCaster.setFromBoolean(outputColumn, pageReader.getBoolean(inputColumn));
             }
         };
@@ -82,7 +91,8 @@ public class ColumnVisitorImpl
     {
         final Column outputColumn = outputColumnMap.get(inputColumn.getName());
         PageBuildable op = new PageBuildable() {
-            public void run() throws DataException {
+            public void run() throws DataException
+            {
                 columnCaster.setFromLong(outputColumn, pageReader.getLong(inputColumn));
             }
         };
@@ -94,7 +104,8 @@ public class ColumnVisitorImpl
     {
         final Column outputColumn = outputColumnMap.get(inputColumn.getName());
         PageBuildable op = new PageBuildable() {
-            public void run() throws DataException {
+            public void run() throws DataException
+            {
                 columnCaster.setFromDouble(outputColumn, pageReader.getDouble(inputColumn));
             }
         };
@@ -106,7 +117,8 @@ public class ColumnVisitorImpl
     {
         final Column outputColumn = outputColumnMap.get(inputColumn.getName());
         PageBuildable op = new PageBuildable() {
-            public void run() throws DataException {
+            public void run() throws DataException
+            {
                 columnCaster.setFromString(outputColumn, pageReader.getString(inputColumn));
             }
         };
@@ -118,7 +130,8 @@ public class ColumnVisitorImpl
     {
         final Column outputColumn = outputColumnMap.get(inputColumn.getName());
         PageBuildable op = new PageBuildable() {
-            public void run() throws DataException {
+            public void run() throws DataException
+            {
                 columnCaster.setFromTimestamp(outputColumn, pageReader.getTimestamp(inputColumn));
             }
         };
@@ -130,7 +143,8 @@ public class ColumnVisitorImpl
     {
         final Column outputColumn = outputColumnMap.get(inputColumn.getName());
         PageBuildable op = new PageBuildable() {
-            public void run() throws DataException {
+            public void run() throws DataException
+            {
                 columnCaster.setFromJson(outputColumn, pageReader.getJson(inputColumn));
             }
         };

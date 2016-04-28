@@ -5,7 +5,10 @@ import org.embulk.spi.time.Timestamp;
 import org.embulk.spi.time.TimestampFormatter;
 import org.msgpack.value.Value;
 
-public class TimestampCast {
+public class TimestampCast
+{
+    private TimestampCast() {}
+
     private static String buildErrorMessage(String as, Timestamp value)
     {
         return String.format("cannot cast Timestamp to %s: \"%s\"", as, value);
@@ -25,7 +28,7 @@ public class TimestampCast {
     {
         long epochSecond = value.getEpochSecond();
         long nano = value.getNano();
-        return epochSecond + ((double)nano / 1000000000.0);
+        return epochSecond + ((double) nano / 1000000000.0);
     }
 
     public static String asString(Timestamp value, TimestampFormatter formatter) throws DataException
