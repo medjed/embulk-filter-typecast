@@ -184,19 +184,19 @@ public class ColumnVisitorImpl
         }
         else if (value.isBooleanValue()) {
             Type outputType = jsonPathTypeMap.get(jsonPath);
-            return TypecastJsonBuilder.getFromBoolean(outputType, value.asBooleanValue().getBoolean());
+            return TypecastJsonBuilder.getFromBoolean(outputType, value.asBooleanValue());
         }
         else if (value.isIntegerValue()) {
             Type outputType = jsonPathTypeMap.get(jsonPath);
-            return TypecastJsonBuilder.getFromLong(outputType, value.asIntegerValue().asLong());
+            return TypecastJsonBuilder.getFromLong(outputType, value.asIntegerValue());
         }
         else if (value.isFloatValue()) {
             Type outputType = jsonPathTypeMap.get(jsonPath);
-            return TypecastJsonBuilder.getFromDouble(outputType, value.asFloatValue().toDouble());
+            return TypecastJsonBuilder.getFromDouble(outputType, value.asFloatValue());
         }
         else if (value.isStringValue()) {
             Type outputType = jsonPathTypeMap.get(jsonPath);
-            return TypecastJsonBuilder.getFromString(outputType, value.asStringValue().asString());
+            return TypecastJsonBuilder.getFromString(outputType, value.asStringValue());
         }
         else {
             return value;

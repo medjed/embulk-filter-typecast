@@ -4,21 +4,23 @@ import org.embulk.filter.typecast.cast.*;
 
 import org.embulk.spi.DataException;
 import org.embulk.spi.type.*;
+import org.msgpack.value.BooleanValue;
+import org.msgpack.value.IntegerValue;
+import org.msgpack.value.FloatValue;
+import org.msgpack.value.StringValue;
 import org.msgpack.value.Value;
 import org.msgpack.value.ValueFactory;
 
 class TypecastJsonBuilder {
-    static Value getFromBoolean(Type outputType, boolean value) {
+    static Value getFromBoolean(Type outputType, BooleanValue value) {
         if (outputType instanceof BooleanType) {
-            return ValueFactory.newBoolean(value);
+            return value;
         } else if (outputType instanceof LongType) {
-            return ValueFactory.newInteger(BooleanCast.asLong(value));
+            return ValueFactory.newInteger(BooleanCast.asLong(value.getBoolean()));
         } else if (outputType instanceof DoubleType) {
-            return ValueFactory.newFloat(BooleanCast.asDouble(value));
+            return ValueFactory.newFloat(BooleanCast.asDouble(value.getBoolean()));
         } else if (outputType instanceof StringType) {
-            return ValueFactory.newString(BooleanCast.asString(value));
-        } else if (outputType instanceof TimestampType) {
-            throw new DataException(String.format("no timestamp type in json: \"%s\"", value));
+            return ValueFactory.newString(BooleanCast.asString(value.getBoolean()));
         } else if (outputType instanceof JsonType) {
             throw new DataException(String.format("cannot cast boolean to json: \"%s\"", value));
         } else {
@@ -27,18 +29,16 @@ class TypecastJsonBuilder {
         }
     }
 
-    static Value getFromLong(Type outputType, long value)
+    static Value getFromLong(Type outputType, IntegerValue value)
     {
         if (outputType instanceof BooleanType) {
-            return ValueFactory.newBoolean(LongCast.asBoolean(value));
+            return ValueFactory.newBoolean(LongCast.asBoolean(value.asLong()));
         } else if (outputType instanceof LongType) {
-            return ValueFactory.newInteger(value);
+            return value;
         } else if (outputType instanceof DoubleType) {
-            return ValueFactory.newFloat(LongCast.asDouble(value));
+            return ValueFactory.newFloat(LongCast.asDouble(value.asLong()));
         } else if (outputType instanceof StringType) {
-            return ValueFactory.newString(LongCast.asString(value));
-        } else if (outputType instanceof TimestampType) {
-            throw new DataException(String.format("no timestamp type in json: \"%s\"", value));
+            return ValueFactory.newString(LongCast.asString(value.asLong()));
         } else if (outputType instanceof JsonType) {
             throw new DataException(String.format("cannot cast long to json:: \"%s\"", value));
         } else {
@@ -47,18 +47,16 @@ class TypecastJsonBuilder {
         }
     }
 
-    static Value getFromDouble(Type outputType, double value)
+    static Value getFromDouble(Type outputType, FloatValue value)
     {
         if (outputType instanceof BooleanType) {
-            return ValueFactory.newBoolean(DoubleCast.asBoolean(value));
+            return ValueFactory.newBoolean(DoubleCast.asBoolean(value.toDouble()));
         } else if (outputType instanceof LongType) {
-            return ValueFactory.newInteger(DoubleCast.asLong(value));
+            return ValueFactory.newInteger(DoubleCast.asLong(value.toDouble()));
         } else if (outputType instanceof DoubleType) {
-            return ValueFactory.newFloat(DoubleCast.asDouble(value));
+            return value;
         } else if (outputType instanceof StringType) {
-            return ValueFactory.newString(DoubleCast.asString(value));
-        } else if (outputType instanceof TimestampType) {
-            throw new DataException(String.format("no timestamp type in json: \"%s\"", value));
+            return ValueFactory.newString(DoubleCast.asString(value.toDouble()));
         } else if (outputType instanceof JsonType) {
             throw new DataException(String.format("cannot cast double to json:: \"%s\"", value));
         } else {
@@ -67,20 +65,18 @@ class TypecastJsonBuilder {
         }
     }
 
-    static Value getFromString(Type outputType, String value)
+    static Value getFromString(Type outputType, StringValue value)
     {
         if (outputType instanceof BooleanType) {
-            return ValueFactory.newBoolean(StringCast.asBoolean(value));
+            return ValueFactory.newBoolean(StringCast.asBoolean(value.asString()));
         } else if (outputType instanceof LongType) {
-            return ValueFactory.newInteger(StringCast.asLong(value));
+            return ValueFactory.newInteger(StringCast.asLong(value.asString()));
         } else if (outputType instanceof DoubleType) {
-            return ValueFactory.newFloat(StringCast.asDouble(value));
+            return ValueFactory.newFloat(StringCast.asDouble(value.asString()));
         } else if (outputType instanceof StringType) {
-            return ValueFactory.newString(StringCast.asString(value));
-        } else if (outputType instanceof TimestampType) {
-            throw new DataException(String.format("no timestamp type in json: \"%s\"", value));
+            return value;
         } else if (outputType instanceof JsonType) {
-            return StringCast.asJson(value);
+            return StringCast.asJson(value.asString());
         } else {
             assert(false);
             return null;
@@ -97,8 +93,6 @@ class TypecastJsonBuilder {
             return ValueFactory.newFloat(JsonCast.asDouble(value));
         } else if (outputType instanceof StringType) {
             return ValueFactory.newString(JsonCast.asString(value));
-        } else if (outputType instanceof TimestampType) {
-            throw new DataException(String.format("no timestamp type in json: \"%s\"", value));
         } else if (outputType instanceof JsonType) {
             return value;
         } else {
