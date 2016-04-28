@@ -26,7 +26,7 @@ public class ColumnVisitorImpl
     private final HashMap<String, Column> outputColumnMap = new HashMap<>();
     private final HashMap<String, TimestampParser> timestampParserMap = new HashMap<>();
     private final HashMap<String, TimestampFormatter> timestampFormatterMap = new HashMap<>();
-    private final TypecastPageBuilder typecastPageBuilder;
+    private final ColumnCaster columnCaster;
 
     ColumnVisitorImpl(PluginTask task, Schema inputSchema, Schema outputSchema,
             PageReader pageReader, PageBuilder pageBuilder)
@@ -37,7 +37,7 @@ public class ColumnVisitorImpl
         this.pageReader   = pageReader;
         this.pageBuilder  = pageBuilder;
 
-        this.typecastPageBuilder = new TypecastPageBuilder(task, inputSchema, outputSchema, pageReader, pageBuilder);
+        this.columnCaster = new ColumnCaster(task, inputSchema, outputSchema, pageReader, pageBuilder);
 
         buildOutputColumnMap();
         buildTimestampParserMap();
@@ -125,7 +125,7 @@ public class ColumnVisitorImpl
         final Column outputColumn = outputColumnMap.get(inputColumn.getName());
         PageBuildable op = new PageBuildable() {
             public void run() throws DataException {
-                typecastPageBuilder.setFromBoolean(outputColumn, pageReader.getBoolean(inputColumn));
+                columnCaster.setFromBoolean(outputColumn, pageReader.getBoolean(inputColumn));
             }
         };
         withStopOnInvalidRecord(op, inputColumn, outputColumn);
@@ -137,7 +137,7 @@ public class ColumnVisitorImpl
         final Column outputColumn = outputColumnMap.get(inputColumn.getName());
         PageBuildable op = new PageBuildable() {
             public void run() throws DataException {
-                typecastPageBuilder.setFromLong(outputColumn, pageReader.getLong(inputColumn));
+                columnCaster.setFromLong(outputColumn, pageReader.getLong(inputColumn));
             }
         };
         withStopOnInvalidRecord(op, inputColumn, outputColumn);
@@ -149,7 +149,7 @@ public class ColumnVisitorImpl
         final Column outputColumn = outputColumnMap.get(inputColumn.getName());
         PageBuildable op = new PageBuildable() {
             public void run() throws DataException {
-                typecastPageBuilder.setFromDouble(outputColumn, pageReader.getDouble(inputColumn));
+                columnCaster.setFromDouble(outputColumn, pageReader.getDouble(inputColumn));
             }
         };
         withStopOnInvalidRecord(op, inputColumn, outputColumn);
@@ -162,7 +162,7 @@ public class ColumnVisitorImpl
         final TimestampParser timestampParser = timestampParserMap.get(inputColumn.getName());
         PageBuildable op = new PageBuildable() {
             public void run() throws DataException {
-                typecastPageBuilder.setFromString(outputColumn, pageReader.getString(inputColumn), timestampParser);
+                columnCaster.setFromString(outputColumn, pageReader.getString(inputColumn), timestampParser);
             }
         };
         withStopOnInvalidRecord(op, inputColumn, outputColumn);
@@ -175,7 +175,7 @@ public class ColumnVisitorImpl
         final TimestampFormatter timestampFormatter = timestampFormatterMap.get(inputColumn.getName());
         PageBuildable op = new PageBuildable() {
             public void run() throws DataException {
-                typecastPageBuilder.setFromTimestamp(outputColumn, pageReader.getTimestamp(inputColumn), timestampFormatter);
+                columnCaster.setFromTimestamp(outputColumn, pageReader.getTimestamp(inputColumn), timestampFormatter);
             }
         };
         withStopOnInvalidRecord(op, inputColumn, outputColumn);
@@ -187,7 +187,7 @@ public class ColumnVisitorImpl
         final Column outputColumn = outputColumnMap.get(inputColumn.getName());
         PageBuildable op = new PageBuildable() {
             public void run() throws DataException {
-                typecastPageBuilder.setFromJson(outputColumn, pageReader.getJson(inputColumn));
+                columnCaster.setFromJson(outputColumn, pageReader.getJson(inputColumn));
             }
         };
         withStopOnInvalidRecord(op, inputColumn, outputColumn);

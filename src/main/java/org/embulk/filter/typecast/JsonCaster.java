@@ -11,8 +11,13 @@ import org.msgpack.value.StringValue;
 import org.msgpack.value.Value;
 import org.msgpack.value.ValueFactory;
 
-class JsonBuilder {
-    static Value getFromBoolean(Type outputType, BooleanValue value) {
+class JsonCaster
+{
+    public JsonCaster()
+    {
+    }
+
+    public Value fromBoolean(Type outputType, BooleanValue value) {
         if (outputType instanceof BooleanType) {
             return value;
         } else if (outputType instanceof LongType) {
@@ -29,7 +34,7 @@ class JsonBuilder {
         }
     }
 
-    static Value getFromLong(Type outputType, IntegerValue value)
+    public Value fromLong(Type outputType, IntegerValue value)
     {
         if (outputType instanceof BooleanType) {
             return ValueFactory.newBoolean(LongCast.asBoolean(value.asLong()));
@@ -47,7 +52,7 @@ class JsonBuilder {
         }
     }
 
-    static Value getFromDouble(Type outputType, FloatValue value)
+    public Value fromDouble(Type outputType, FloatValue value)
     {
         if (outputType instanceof BooleanType) {
             return ValueFactory.newBoolean(DoubleCast.asBoolean(value.toDouble()));
@@ -65,7 +70,7 @@ class JsonBuilder {
         }
     }
 
-    static Value getFromString(Type outputType, StringValue value)
+    public Value fromString(Type outputType, StringValue value)
     {
         if (outputType instanceof BooleanType) {
             return ValueFactory.newBoolean(StringCast.asBoolean(value.asString()));
@@ -77,24 +82,6 @@ class JsonBuilder {
             return value;
         } else if (outputType instanceof JsonType) {
             return StringCast.asJson(value.asString());
-        } else {
-            assert(false);
-            return null;
-        }
-    }
-
-    static Value getFromJson(Type outputType, Value value)
-    {
-        if (outputType instanceof BooleanType) {
-            return ValueFactory.newBoolean(JsonCast.asBoolean(value));
-        } else if (outputType instanceof LongType) {
-            return ValueFactory.newInteger(JsonCast.asLong(value));
-        } else if (outputType instanceof DoubleType) {
-            return ValueFactory.newFloat(JsonCast.asDouble(value));
-        } else if (outputType instanceof StringType) {
-            return ValueFactory.newString(JsonCast.asString(value));
-        } else if (outputType instanceof JsonType) {
-            return value;
         } else {
             assert(false);
             return null;

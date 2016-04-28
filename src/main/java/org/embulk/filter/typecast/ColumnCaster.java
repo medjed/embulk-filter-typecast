@@ -19,7 +19,8 @@ import org.msgpack.value.Value;
 import org.slf4j.Logger;
 
 
-class TypecastPageBuilder {
+class ColumnCaster
+{
     private static final Logger logger = Exec.getLogger(TypecastFilterPlugin.class);
     private final PluginTask task;
     private final Schema inputSchema;
@@ -28,7 +29,7 @@ class TypecastPageBuilder {
     private final PageBuilder pageBuilder;
     private final JsonVisitor jsonVisitor;
 
-    TypecastPageBuilder(TypecastFilterPlugin.PluginTask task, Schema inputSchema, Schema outputSchema,
+    ColumnCaster(TypecastFilterPlugin.PluginTask task, Schema inputSchema, Schema outputSchema,
             PageReader pageReader, PageBuilder pageBuilder)
     {
         this.task = task;

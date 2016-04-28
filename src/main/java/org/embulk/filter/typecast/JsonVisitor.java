@@ -24,6 +24,7 @@ public class JsonVisitor
     private final Schema outputSchema;
     private final HashSet<String> shouldVisitSet = new HashSet<>();
     private final HashMap<String, Type> jsonPathTypeMap = new HashMap<>();
+    private final JsonCaster jsonCaster = new JsonCaster();
 
     JsonVisitor(PluginTask task, Schema inputSchema, Schema outputSchema)
     {
@@ -114,19 +115,19 @@ public class JsonVisitor
         }
         else if (value.isBooleanValue()) {
             Type outputType = jsonPathTypeMap.get(jsonPath);
-            return JsonBuilder.getFromBoolean(outputType, value.asBooleanValue());
+            return jsonCaster.fromBoolean(outputType, value.asBooleanValue());
         }
         else if (value.isIntegerValue()) {
             Type outputType = jsonPathTypeMap.get(jsonPath);
-            return JsonBuilder.getFromLong(outputType, value.asIntegerValue());
+            return jsonCaster.fromLong(outputType, value.asIntegerValue());
         }
         else if (value.isFloatValue()) {
             Type outputType = jsonPathTypeMap.get(jsonPath);
-            return JsonBuilder.getFromDouble(outputType, value.asFloatValue());
+            return jsonCaster.fromDouble(outputType, value.asFloatValue());
         }
         else if (value.isStringValue()) {
             Type outputType = jsonPathTypeMap.get(jsonPath);
-            return JsonBuilder.getFromString(outputType, value.asStringValue());
+            return jsonCaster.fromString(outputType, value.asStringValue());
         }
         else {
             return value;
