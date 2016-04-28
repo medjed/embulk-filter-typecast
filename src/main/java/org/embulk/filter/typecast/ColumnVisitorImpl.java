@@ -1,15 +1,9 @@
 package org.embulk.filter.typecast;
 
 import org.embulk.spi.*;
-import org.embulk.spi.type.StringType;
-import org.embulk.spi.type.TimestampType;
 
-import org.embulk.filter.typecast.TypecastFilterPlugin.ColumnConfig;
 import org.embulk.filter.typecast.TypecastFilterPlugin.PluginTask;
 
-import org.embulk.spi.time.TimestampFormatter;
-import org.embulk.spi.time.TimestampParser;
-import org.joda.time.DateTimeZone;
 import org.slf4j.Logger;
 
 import java.util.HashMap;
@@ -24,8 +18,6 @@ public class ColumnVisitorImpl
     private final PageReader pageReader;
     private final PageBuilder pageBuilder;
     private final HashMap<String, Column> outputColumnMap = new HashMap<>();
-    private final HashMap<String, TimestampParser> timestampParserMap = new HashMap<>();
-    private final HashMap<String, TimestampFormatter> timestampFormatterMap = new HashMap<>();
     private final ColumnCaster columnCaster;
 
     ColumnVisitorImpl(PluginTask task, Schema inputSchema, Schema outputSchema,
@@ -40,8 +32,6 @@ public class ColumnVisitorImpl
         this.columnCaster = new ColumnCaster(task, inputSchema, outputSchema, pageReader, pageBuilder);
 
         buildOutputColumnMap();
-        buildTimestampParserMap();
-        buildTimestampFormatterMap();
     }
 
     private void buildOutputColumnMap()
@@ -50,50 +40,6 @@ public class ColumnVisitorImpl
         for (Column column : outputSchema.getColumns()) {
             this.outputColumnMap.put(column.getName(), column);
         }
-    }
-
-    private void buildTimestampParserMap()
-    {
-        // columnName => TimestampParser
-        for (ColumnConfig columnConfig : task.getColumns()) {
-            if (columnConfig.getName().startsWith("$.")) {
-                continue; // type: json columns do not support type: timestamp
-            }
-            Column inputColumn = inputSchema.lookupColumn(columnConfig.getName());
-            if (inputColumn.getType() instanceof StringType && columnConfig.getType() instanceof TimestampType) {
-                TimestampParser parser = getTimestampParser(columnConfig, task);
-                this.timestampParserMap.put(columnConfig.getName(), parser);
-            }
-        }
-    }
-
-    private void buildTimestampFormatterMap()
-    {
-        // columnName => TimestampFormatter
-        for (ColumnConfig columnConfig : task.getColumns()) {
-            if (columnConfig.getName().startsWith("$.")) {
-                continue; // type: json columns do not have type: timestamp
-            }
-            Column inputColumn = inputSchema.lookupColumn(columnConfig.getName());
-            if (inputColumn.getType() instanceof TimestampType && columnConfig.getType() instanceof StringType) {
-                TimestampFormatter parser = getTimestampFormatter(columnConfig, task);
-                this.timestampFormatterMap.put(columnConfig.getName(), parser);
-            }
-        }
-    }
-
-    private TimestampParser getTimestampParser(ColumnConfig columnConfig, PluginTask task)
-    {
-        DateTimeZone timezone = columnConfig.getTimeZone().or(task.getDefaultTimeZone());
-        String format = columnConfig.getFormat().or(task.getDefaultTimestampFormat());
-        return new TimestampParser(task.getJRuby(), format, timezone);
-    }
-
-    private TimestampFormatter getTimestampFormatter(ColumnConfig columnConfig, PluginTask task)
-    {
-        String format = columnConfig.getFormat().or(task.getDefaultTimestampFormat());
-        DateTimeZone timezone = columnConfig.getTimeZone().or(task.getDefaultTimeZone());
-        return new TimestampFormatter(task.getJRuby(), format, timezone);
     }
 
     private interface PageBuildable
@@ -159,10 +105,9 @@ public class ColumnVisitorImpl
     public void stringColumn(final Column inputColumn)
     {
         final Column outputColumn = outputColumnMap.get(inputColumn.getName());
-        final TimestampParser timestampParser = timestampParserMap.get(inputColumn.getName());
         PageBuildable op = new PageBuildable() {
             public void run() throws DataException {
-                columnCaster.setFromString(outputColumn, pageReader.getString(inputColumn), timestampParser);
+                columnCaster.setFromString(outputColumn, pageReader.getString(inputColumn));
             }
         };
         withStopOnInvalidRecord(op, inputColumn, outputColumn);
@@ -172,10 +117,9 @@ public class ColumnVisitorImpl
     public void timestampColumn(final Column inputColumn)
     {
         final Column outputColumn = outputColumnMap.get(inputColumn.getName());
-        final TimestampFormatter timestampFormatter = timestampFormatterMap.get(inputColumn.getName());
         PageBuildable op = new PageBuildable() {
             public void run() throws DataException {
-                columnCaster.setFromTimestamp(outputColumn, pageReader.getTimestamp(inputColumn), timestampFormatter);
+                columnCaster.setFromTimestamp(outputColumn, pageReader.getTimestamp(inputColumn));
             }
         };
         withStopOnInvalidRecord(op, inputColumn, outputColumn);
