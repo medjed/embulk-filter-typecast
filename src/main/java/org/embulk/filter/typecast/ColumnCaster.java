@@ -134,26 +134,21 @@ class ColumnCaster
 
     public void setFromDouble(Column outputColumn, double value)
     {
-        try {
-            Type outputType = outputColumn.getType();
-            if (outputType instanceof BooleanType) {
-                pageBuilder.setBoolean(outputColumn, DoubleCast.asBoolean(value));
-            } else if (outputType instanceof LongType) {
-                pageBuilder.setLong(outputColumn, DoubleCast.asLong(value));
-            } else if (outputType instanceof DoubleType) {
-                pageBuilder.setDouble(outputColumn, DoubleCast.asDouble(value));
-            } else if (outputType instanceof StringType) {
-                pageBuilder.setString(outputColumn, DoubleCast.asString(value));
-            } else if (outputType instanceof TimestampType) {
-                pageBuilder.setTimestamp(outputColumn, DoubleCast.asTimestamp(value));
-            } else if (outputType instanceof JsonType) {
-                pageBuilder.setJson(outputColumn, DoubleCast.asJson(value));
-            } else {
-                assert (false);
-            }
-        }
-        catch (DataException ex) {
-
+        Type outputType = outputColumn.getType();
+        if (outputType instanceof BooleanType) {
+            pageBuilder.setBoolean(outputColumn, DoubleCast.asBoolean(value));
+        } else if (outputType instanceof LongType) {
+            pageBuilder.setLong(outputColumn, DoubleCast.asLong(value));
+        } else if (outputType instanceof DoubleType) {
+            pageBuilder.setDouble(outputColumn, DoubleCast.asDouble(value));
+        } else if (outputType instanceof StringType) {
+            pageBuilder.setString(outputColumn, DoubleCast.asString(value));
+        } else if (outputType instanceof TimestampType) {
+            pageBuilder.setTimestamp(outputColumn, DoubleCast.asTimestamp(value));
+        } else if (outputType instanceof JsonType) {
+            pageBuilder.setJson(outputColumn, DoubleCast.asJson(value));
+        } else {
+            assert (false);
         }
     }
 
