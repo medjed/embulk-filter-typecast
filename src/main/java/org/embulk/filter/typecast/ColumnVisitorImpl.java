@@ -1,6 +1,9 @@
 package org.embulk.filter.typecast;
 
 import org.embulk.spi.*;
+import org.embulk.spi.time.Timestamp;
+import org.embulk.spi.type.StringType;
+import org.embulk.spi.type.TimestampType;
 import org.embulk.spi.type.Type;
 import org.msgpack.value.ArrayValue;
 import org.msgpack.value.MapValue;
@@ -60,10 +63,16 @@ public class ColumnVisitorImpl
 
     private void buildTimestampParserMap()
     {
-        // columnName or jsonPath => TimestampParser
+        // columnName => TimestampParser
         for (ColumnConfig columnConfig : task.getColumns()) {
-            TimestampParser parser = getTimestampParser(columnConfig, task);
-            this.timestampParserMap.put(columnConfig.getName(), parser);
+            if (columnConfig.getName().startsWith("$.")) {
+                continue; // type: json columns do not support type: timestamp
+            }
+            Column inputColumn = inputSchema.lookupColumn(columnConfig.getName());
+            if (inputColumn.getType() instanceof StringType && columnConfig.getType() instanceof TimestampType) {
+                TimestampParser parser = getTimestampParser(columnConfig, task);
+                this.timestampParserMap.put(columnConfig.getName(), parser);
+            }
         }
     }
 
@@ -76,10 +85,16 @@ public class ColumnVisitorImpl
 
     private void buildTimestampFormatterMap()
     {
-        // columnName or jsonPath => TimestampFormatter
+        // columnName => TimestampFormatter
         for (ColumnConfig columnConfig : task.getColumns()) {
-            TimestampFormatter parser = getTimestampFormatter(columnConfig, task);
-            this.timestampFormatterMap.put(columnConfig.getName(), parser);
+            if (columnConfig.getName().startsWith("$.")) {
+                continue; // type: json columns do not have type: timestamp
+            }
+            Column inputColumn = inputSchema.lookupColumn(columnConfig.getName());
+            if (inputColumn.getType() instanceof TimestampType && columnConfig.getType() instanceof StringType) {
+                TimestampFormatter parser = getTimestampFormatter(columnConfig, task);
+                this.timestampFormatterMap.put(columnConfig.getName(), parser);
+            }
         }
     }
 
