@@ -4,15 +4,18 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import org.embulk.config.Config;
 import org.embulk.config.ConfigDefault;
+import org.embulk.config.ConfigException;
 import org.embulk.config.ConfigInject;
 import org.embulk.config.ConfigSource;
 import org.embulk.config.Task;
 import org.embulk.config.TaskSource;
 
 import org.embulk.spi.*;
+import org.embulk.spi.time.Timestamp;
 import org.embulk.spi.time.TimestampFormatter;
 import org.embulk.spi.time.TimestampParser;
 
+import org.embulk.spi.type.TimestampType;
 import org.embulk.spi.type.Type;
 import org.joda.time.DateTimeZone;
 import org.jruby.embed.ScriptingContainer;
@@ -86,12 +89,19 @@ public class TypecastFilterPlugin implements FilterPlugin
         // throw if column does not exist
         for (ColumnConfig columnConfig : columnConfigs) {
             String name = columnConfig.getName();
-            if (name.startsWith("$.")) {
+            if (name.startsWith("$.")) { // check only top level column name
                 String firstName = name.split("\\.", 3)[1];
                 inputSchema.lookupColumn(firstName);
             }
             else {
                 inputSchema.lookupColumn(name);
+            }
+        }
+        // throw if timestamp is specified in json path
+        for (ColumnConfig columnConfig : columnConfigs) {
+            String name = columnConfig.getName();
+            if (name.startsWith("$.") && columnConfig.getType() instanceof TimestampType) {
+                throw new ConfigException(String.format("embulk-filter-typecast: timestamp type is not supported in json column: \"%s\"", name));
             }
         }
     }
