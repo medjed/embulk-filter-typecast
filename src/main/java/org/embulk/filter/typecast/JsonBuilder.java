@@ -11,7 +11,7 @@ import org.msgpack.value.StringValue;
 import org.msgpack.value.Value;
 import org.msgpack.value.ValueFactory;
 
-class TypecastJsonBuilder {
+class JsonBuilder {
     static Value getFromBoolean(Type outputType, BooleanValue value) {
         if (outputType instanceof BooleanType) {
             return value;
