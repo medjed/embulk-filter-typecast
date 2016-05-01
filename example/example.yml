@@ -16,6 +16,7 @@ in:
       - {name: double,    type: double}
       - {name: json1,     type: json}
       - {name: json2,     type: json}
+      - {name: ignore,    type: timestamp, format: "%Y-%m-%d", timezone: "+09:00"}
       - {name: boolean,   type: boolean}
 filters:
   - type: typecast
