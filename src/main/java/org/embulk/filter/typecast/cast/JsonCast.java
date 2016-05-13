@@ -10,7 +10,7 @@ public class JsonCast
 
     private static String buildErrorMessage(String as, Value value)
     {
-        return String.format("cannot cast String to %s: \"%s\"", as, value);
+        return String.format("cannot cast Json to %s: \"%s\"", as, value);
     }
 
     public static boolean asBoolean(Value value) throws DataException
