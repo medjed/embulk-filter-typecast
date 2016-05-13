@@ -10,7 +10,7 @@ public class BooleanCast
 
     private static String buildErrorMessage(String as, boolean value)
     {
-        return String.format("cannot cast double to %s: \"%s\"", as, value);
+        return String.format("cannot cast boolean to %s: \"%s\"", as, value);
     }
 
     public static boolean asBoolean(boolean value) throws DataException
