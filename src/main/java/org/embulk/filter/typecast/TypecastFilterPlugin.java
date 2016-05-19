@@ -93,7 +93,8 @@ public class TypecastFilterPlugin implements FilterPlugin
             String name = columnConfig.getName();
             if (name.startsWith("$.")) { // check only top level column name
                 String firstName = name.split("\\.", 3)[1];
-                inputSchema.lookupColumn(firstName);
+                String firstNameWithoutArray = firstName.split("\\[")[0];
+                inputSchema.lookupColumn(firstNameWithoutArray);
             }
             else {
                 inputSchema.lookupColumn(name);

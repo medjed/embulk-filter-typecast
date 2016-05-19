@@ -16,6 +16,8 @@ in:
       - {name: double,    type: double}
       - {name: json1,     type: json}
       - {name: json2,     type: json}
+      - {name: array_str, type: json}
+      - {name: array_int, type: json}
       - {name: ignore,    type: timestamp, format: "%Y-%m-%d", timezone: "+09:00"}
       - {name: boolean,   type: boolean}
 filters:
@@ -30,5 +32,7 @@ filters:
       - {name: boolean,   type: string}
       - {name: "$.json1.string", type: string}
       - {name: "$.json2.long",   type: string}
+      - {name: "$.array_str[0]", type: long}
+      - {name: "$.array_int[*]", type: string}
 out:
   type: "null"
