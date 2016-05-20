@@ -1,5 +1,6 @@
 package org.embulk.filter.typecast;
 
+import com.jayway.jsonpath.JsonPath;
 import org.embulk.filter.typecast.TypecastFilterPlugin.ColumnConfig;
 import org.embulk.filter.typecast.TypecastFilterPlugin.PluginTask;
 
@@ -112,6 +113,9 @@ public class JsonVisitor
                 Value k = entry.getKey();
                 Value v = entry.getValue();
                 String newPath = new StringBuilder(jsonPath).append(".").append(k.asStringValue().asString()).toString();
+                String p = new StringBuilder("$").append(".").append(k.asStringValue().asString()).toString();
+                Value f = JsonPath.read(value, p);
+
                 Value r = visit(newPath, v);
                 newValue[i++] = k;
                 newValue[i++] = r;

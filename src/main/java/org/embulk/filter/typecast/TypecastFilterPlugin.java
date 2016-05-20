@@ -2,6 +2,13 @@ package org.embulk.filter.typecast;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.jayway.jsonpath.Configuration;
+import com.jayway.jsonpath.Option;
+import com.jayway.jsonpath.spi.json.JsonProvider;
+import com.jayway.jsonpath.spi.json.MsgpackProvider;
+import com.jayway.jsonpath.spi.mapper.JacksonMappingProvider;
+import com.jayway.jsonpath.spi.mapper.MappingProvider;
+import com.jayway.jsonpath.spi.mapper.MsgpackMappingProvider;
 import org.embulk.config.Config;
 import org.embulk.config.ConfigDefault;
 import org.embulk.config.ConfigException;
@@ -24,7 +31,9 @@ import org.joda.time.DateTimeZone;
 import org.jruby.embed.ScriptingContainer;
 import org.slf4j.Logger;
 
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 public class TypecastFilterPlugin implements FilterPlugin
 {
@@ -79,6 +88,31 @@ public class TypecastFilterPlugin implements FilterPlugin
             final FilterPlugin.Control control)
     {
         PluginTask task = config.loadConfig(PluginTask.class);
+
+        Configuration.setDefaults(new Configuration.Defaults()
+        {
+
+            private final JsonProvider jsonProvider = new MsgpackProvider();
+            private final MappingProvider mappingProvider = new MsgpackMappingProvider();
+
+            @Override
+            public JsonProvider jsonProvider()
+            {
+                return jsonProvider;
+            }
+
+            @Override
+            public MappingProvider mappingProvider()
+            {
+                return mappingProvider;
+            }
+
+            @Override
+            public Set<Option> options()
+            {
+                return EnumSet.noneOf(Option.class);
+            }
+        });
 
         configure(task, inputSchema);
         Schema outputSchema = buildOuputSchema(task, inputSchema);
