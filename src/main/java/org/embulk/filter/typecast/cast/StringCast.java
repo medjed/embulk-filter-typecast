@@ -14,7 +14,7 @@ public class StringCast
     private static final JsonParser jsonParser = new JsonParser();
 
     // copy from csv plugin
-    private static final ImmutableSet<String> TRUE_STRINGS =
+    public static final ImmutableSet<String> TRUE_STRINGS =
             ImmutableSet.of(
                     "true", "True", "TRUE",
                     "yes", "Yes", "YES",
@@ -22,7 +22,7 @@ public class StringCast
                     "on", "On", "ON",
                     "1");
 
-    private static final ImmutableSet<String> FALSE_STRINGS =
+    public static final ImmutableSet<String> FALSE_STRINGS =
             ImmutableSet.of(
                     "false", "False", "FALSE",
                     "no", "No", "NO",
