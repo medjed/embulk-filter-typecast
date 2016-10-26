@@ -1,3 +1,9 @@
+# 0.1.4 (2016-10-26)
+
+Enhancements:
+
+* Support casting Json into String **IN** Json payloads
+
 # 0.1.3 (2016-05-19)
 
 Enhancements:
