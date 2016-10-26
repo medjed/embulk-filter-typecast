@@ -9,6 +9,8 @@ in:
         type: long
       - name: data
         type: json
+      - name: payload
+        type: json
 filters:
   - type: typecast
     columns:
