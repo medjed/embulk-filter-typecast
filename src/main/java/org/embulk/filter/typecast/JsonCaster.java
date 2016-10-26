@@ -2,9 +2,9 @@ package org.embulk.filter.typecast;
 
 import org.embulk.filter.typecast.cast.BooleanCast;
 import org.embulk.filter.typecast.cast.DoubleCast;
+import org.embulk.filter.typecast.cast.JsonCast;
 import org.embulk.filter.typecast.cast.LongCast;
 import org.embulk.filter.typecast.cast.StringCast;
-import org.embulk.spi.DataException;
 import org.embulk.spi.type.BooleanType;
 import org.embulk.spi.type.DoubleType;
 import org.embulk.spi.type.JsonType;
@@ -37,7 +37,7 @@ class JsonCaster
             return ValueFactory.newString(BooleanCast.asString(value.getBoolean()));
         }
         else if (outputType instanceof JsonType) {
-            throw new DataException(String.format("cannot cast boolean to json: \"%s\"", value));
+            return BooleanCast.asJson(value.getBoolean());
         }
         else {
             assert (false);
@@ -60,7 +60,7 @@ class JsonCaster
             return ValueFactory.newString(LongCast.asString(value.asLong()));
         }
         else if (outputType instanceof JsonType) {
-            throw new DataException(String.format("cannot cast long to json:: \"%s\"", value));
+            return LongCast.asJson(value.asLong());
         }
         else {
             assert false;
@@ -83,7 +83,7 @@ class JsonCaster
             return ValueFactory.newString(DoubleCast.asString(value.toDouble()));
         }
         else if (outputType instanceof JsonType) {
-            throw new DataException(String.format("cannot cast double to json:: \"%s\"", value));
+            return DoubleCast.asJson(value.toDouble());
         }
         else {
             assert (false);
@@ -107,6 +107,29 @@ class JsonCaster
         }
         else if (outputType instanceof JsonType) {
             return StringCast.asJson(value.asString());
+        }
+        else {
+            assert false;
+            return null;
+        }
+    }
+
+    public Value fromJson(Type outputType, Value value)
+    {
+        if (outputType instanceof BooleanType) {
+            return ValueFactory.newBoolean(JsonCast.asBoolean(value));
+        }
+        else if (outputType instanceof LongType) {
+            return ValueFactory.newInteger(JsonCast.asLong(value));
+        }
+        else if (outputType instanceof DoubleType) {
+            return ValueFactory.newFloat(JsonCast.asDouble(value));
+        }
+        else if (outputType instanceof StringType) {
+            return ValueFactory.newString(JsonCast.asString(value));
+        }
+        else if (outputType instanceof JsonType) {
+            return value;
         }
         else {
             assert false;

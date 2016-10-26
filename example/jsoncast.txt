@@ -1,0 +1,13 @@
+2016-10-26 17:02:32.488 +0900: Embulk v0.8.13
+2016-10-26 17:02:33.947 +0900 [INFO] (0001:preview): Loaded plugin embulk/filter/typecast from a load path
+2016-10-26 17:02:33.974 +0900 [INFO] (0001:preview): Listing local files at directory 'example' filtering filename by prefix 'jsoncast.json'
+2016-10-26 17:02:33.980 +0900 [INFO] (0001:preview): Loading files [example/jsoncast.json]
+2016-10-26 17:02:34.093 +0900 [INFO] (0001:preview): Loaded plugin embulk-parser-jsonl (0.2.0)
++--------------+-----------------------------------------------------------------------+
+| user_id:long |                                                             data:json |
++--------------+-----------------------------------------------------------------------+
+|      135,400 |  {"data":"{\"transaction_name\":\"1421149413_1\"}","schemaVersion":5} |
+|      133,230 | {"data":"{\"transaction_name\":\"1420839135_16\"}","schemaVersion":5} |
+|      134,410 | {"data":"{\"transaction_name\":\"1420683229_18\"}","schemaVersion":5} |
+|      133,220 | {"data":"{\"transaction_name\":\"1421586269_10\"}","schemaVersion":5} |
++--------------+-----------------------------------------------------------------------+
