@@ -32,7 +32,7 @@ filters:
       - {name: boolean,   type: string}
       - {name: "$.json1.string", type: string}
       - {name: "$.json2.long",   type: string}
-      - {name: "$.array_str[0]", type: long}
+      - {name: "$.array_str[0]", type: string}
       - {name: "$.array_int[*]", type: string}
 out:
   type: "null"

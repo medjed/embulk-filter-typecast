@@ -5,7 +5,7 @@ in:
     type: csv
     charset: UTF-8
     newline: CRLF
-    null_string: 'NULL'
+    null_string: ''
     skip_header_lines: 1
     comment_line_marker: '#'
     columns:
@@ -16,7 +16,10 @@ in:
       - {name: double,    type: string}
       - {name: json1,     type: string}
       - {name: json2,     type: string}
-      - {name: boolean,   type: boolean}
+      - {name: array_str, type: string}
+      - {name: array_int, type: string}
+      - {name: ignore,    type: string}
+      - {name: boolean,   type: string}
 filters:
   - type: typecast
     columns:
@@ -27,8 +30,12 @@ filters:
       - {name: double,    type: double}
       - {name: json1,     type: json}
       - {name: json2,     type: json}
+      - {name: array_str, type: json}
+      - {name: array_int, type: json}
       - {name: boolean,   type: boolean}
       - {name: "$.json1.string", type: long}
       - {name: "$.json2.long",   type: long}
+      - {name: "$.array_str[0]", type: long}
+      - {name: "$.array_int[*]", type: long}
 out:
   type: "null"
