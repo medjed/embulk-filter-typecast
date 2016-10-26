@@ -89,6 +89,30 @@ public class JsonVisitor
         if (!shouldVisit(rootPath)) {
             return value;
         }
+        Type outputType = jsonPathTypeMap.get(rootPath);
+        if (outputType != null) {
+            if (value.isBooleanValue()) {
+                return jsonCaster.fromBoolean(outputType, value.asBooleanValue());
+            }
+            else if (value.isIntegerValue()) {
+                return jsonCaster.fromLong(outputType, value.asIntegerValue());
+            }
+            else if (value.isFloatValue()) {
+                return jsonCaster.fromDouble(outputType, value.asFloatValue());
+            }
+            else if (value.isStringValue()) {
+                return jsonCaster.fromString(outputType, value.asStringValue());
+            }
+            else if (value.isArrayValue()) {
+                return jsonCaster.fromJson(outputType, value);
+            }
+            else if (value.isMapValue()) {
+                return jsonCaster.fromJson(outputType, value);
+            }
+            else {
+                return value;
+            }
+        }
         if (value.isArrayValue()) {
             ArrayValue arrayValue = value.asArrayValue();
             int size = arrayValue.size();
@@ -117,22 +141,6 @@ public class JsonVisitor
                 newValue[i++] = r;
             }
             return ValueFactory.newMap(newValue, true);
-        }
-        else if (value.isBooleanValue()) {
-            Type outputType = jsonPathTypeMap.get(rootPath);
-            return jsonCaster.fromBoolean(outputType, value.asBooleanValue());
-        }
-        else if (value.isIntegerValue()) {
-            Type outputType = jsonPathTypeMap.get(rootPath);
-            return jsonCaster.fromLong(outputType, value.asIntegerValue());
-        }
-        else if (value.isFloatValue()) {
-            Type outputType = jsonPathTypeMap.get(rootPath);
-            return jsonCaster.fromDouble(outputType, value.asFloatValue());
-        }
-        else if (value.isStringValue()) {
-            Type outputType = jsonPathTypeMap.get(rootPath);
-            return jsonCaster.fromString(outputType, value.asStringValue());
         }
         else {
             return value;

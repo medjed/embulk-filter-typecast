@@ -1,0 +1,18 @@
+in:
+  type: file
+  path_prefix: example/jsoncast.json
+  parser:
+    type: jsonl
+    default_timezone: Asia/Tokyo
+    columns:
+      - name: user_id
+        type: long
+      - name: data
+        type: json
+filters:
+  - type: typecast
+    columns:
+      - name: $.data.data
+        type: string
+out:
+  type: "null"
