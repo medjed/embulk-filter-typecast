@@ -1,5 +1,9 @@
 package org.embulk.filter.typecast;
 
+import io.github.medjed.jsonpathcompiler.expressions.Path;
+import io.github.medjed.jsonpathcompiler.expressions.Utils;
+import io.github.medjed.jsonpathcompiler.expressions.path.PathCompiler;
+import io.github.medjed.jsonpathcompiler.expressions.path.PropertyPathToken;
 import org.embulk.filter.typecast.TypecastFilterPlugin.ColumnConfig;
 import org.embulk.filter.typecast.TypecastFilterPlugin.PluginTask;
 
@@ -61,7 +65,7 @@ class ColumnCaster
     {
         // columnName => TimestampParser
         for (ColumnConfig columnConfig : task.getColumns()) {
-            if (columnConfig.getName().startsWith("$.")) {
+            if (PathCompiler.isProbablyJsonPath(columnConfig.getName())) {
                 continue; // type: json columns do not support type: timestamp
             }
             Column inputColumn = inputSchema.lookupColumn(columnConfig.getName());
@@ -76,7 +80,7 @@ class ColumnCaster
     {
         // columnName => TimestampFormatter
         for (ColumnConfig columnConfig : task.getColumns()) {
-            if (columnConfig.getName().startsWith("$.")) {
+            if (PathCompiler.isProbablyJsonPath(columnConfig.getName())) {
                 continue; // type: json columns do not have type: timestamp
             }
             Column inputColumn = inputSchema.lookupColumn(columnConfig.getName());
@@ -200,7 +204,8 @@ class ColumnCaster
         }
         else if (outputType instanceof JsonType) {
             Value jsonValue = StringCast.asJson(value);
-            String jsonPath = new StringBuilder("$.").append(outputColumn.getName()).toString();
+            String name = outputColumn.getName();
+            String jsonPath = new StringBuilder("$").append(PropertyPathToken.getPathFragment(name)).toString();
             Value castedValue = jsonVisitor.visit(jsonPath, jsonValue);
             pageBuilder.setJson(outputColumn, castedValue);
         }
@@ -238,7 +243,8 @@ class ColumnCaster
 
     public void setFromJson(Column outputColumn, Value value)
     {
-        String jsonPath = new StringBuilder("$.").append(outputColumn.getName()).toString();
+        String name = outputColumn.getName();
+        String jsonPath = new StringBuilder("$").append(PropertyPathToken.getPathFragment(name)).toString();
         Value castedValue = jsonVisitor.visit(jsonPath, value);
         Type outputType = outputColumn.getType();
         if (outputType instanceof BooleanType) {

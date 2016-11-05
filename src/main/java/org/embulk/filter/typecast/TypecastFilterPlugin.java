@@ -2,6 +2,7 @@ package org.embulk.filter.typecast;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import io.github.medjed.jsonpathcompiler.expressions.path.PathCompiler;
 import org.embulk.config.Config;
 import org.embulk.config.ConfigDefault;
 import org.embulk.config.ConfigException;
@@ -91,10 +92,10 @@ public class TypecastFilterPlugin implements FilterPlugin
         // throw if column does not exist
         for (ColumnConfig columnConfig : columnConfigs) {
             String name = columnConfig.getName();
-            if (name.startsWith("$.")) { // check only top level column name
-                String firstName = name.split("\\.", 3)[1];
-                String firstNameWithoutArray = firstName.split("\\[")[0];
-                inputSchema.lookupColumn(firstNameWithoutArray);
+            if (PathCompiler.isProbablyJsonPath(name)) {
+                // check only top level column name
+                String columnName = JsonPathUtil.getColumnName(name);
+                inputSchema.lookupColumn(columnName);
             }
             else {
                 inputSchema.lookupColumn(name);
@@ -103,7 +104,7 @@ public class TypecastFilterPlugin implements FilterPlugin
         // throw if timestamp is specified in json path
         for (ColumnConfig columnConfig : columnConfigs) {
             String name = columnConfig.getName();
-            if (name.startsWith("$.") && columnConfig.getType() instanceof TimestampType) {
+            if (PathCompiler.isProbablyJsonPath(name) && columnConfig.getType() instanceof TimestampType) {
                 throw new ConfigException(String.format("embulk-filter-typecast: timestamp type is not supported in json column: \"%s\"", name));
             }
         }
