@@ -1,5 +1,10 @@
 package org.embulk.filter.typecast;
 
+import io.github.medjed.jsonpathcompiler.expressions.Path;
+import io.github.medjed.jsonpathcompiler.expressions.path.ArrayPathToken;
+import io.github.medjed.jsonpathcompiler.expressions.path.PathCompiler;
+import io.github.medjed.jsonpathcompiler.expressions.path.PathToken;
+import io.github.medjed.jsonpathcompiler.expressions.path.PropertyPathToken;
 import org.embulk.filter.typecast.TypecastFilterPlugin.ColumnConfig;
 import org.embulk.filter.typecast.TypecastFilterPlugin.PluginTask;
 
@@ -33,8 +38,20 @@ public class JsonVisitor
         this.inputSchema  = inputSchema;
         this.outputSchema = outputSchema;
 
+        assertJsonPathFromat();
         buildShouldVisitSet();
         buildJsonPathTypeMap();
+    }
+
+    private void assertJsonPathFromat()
+    {
+        for (ColumnConfig columnConfig : task.getColumns()) {
+            String name = columnConfig.getName();
+            if (! PathCompiler.isProbablyJsonPath(name)) {
+                continue;
+            }
+            JsonPathUtil.assertJsonPathFormat(name);
+        }
     }
 
     private void buildJsonPathTypeMap()
@@ -42,11 +59,12 @@ public class JsonVisitor
         // json path => Type
         for (ColumnConfig columnConfig : task.getColumns()) {
             String name = columnConfig.getName();
-            if (!name.startsWith("$.")) {
+            if (! PathCompiler.isProbablyJsonPath(name)) {
                 continue;
             }
+            Path compiledPath = PathCompiler.compile(name);
             Type type = columnConfig.getType();
-            this.jsonPathTypeMap.put(name, type);
+            this.jsonPathTypeMap.put(compiledPath.toString(), type);
         }
     }
 
@@ -55,26 +73,15 @@ public class JsonVisitor
         // json partial path => Boolean to avoid unnecessary type: json visit
         for (ColumnConfig columnConfig : task.getColumns()) {
             String name = columnConfig.getName();
-            if (!name.startsWith("$.")) {
+            if (! PathCompiler.isProbablyJsonPath(name)) {
                 continue;
             }
-            String[] parts = name.split("\\.");
+            PathToken parts = PathCompiler.compile(name).getRoot();
             StringBuilder partialPath = new StringBuilder("$");
-            for (int i = 1; i < parts.length; i++) {
-                if (parts[i].contains("[")) {
-                    String[] arrayParts = parts[i].split("\\[");
-                    partialPath.append(".").append(arrayParts[0]);
-                    this.shouldVisitSet.add(partialPath.toString());
-                    for (int j = 1; j < arrayParts.length; j++) {
-                        // Supports both [0] and [*]
-                        partialPath.append("[").append(arrayParts[j]);
-                        this.shouldVisitSet.add(partialPath.toString());
-                    }
-                }
-                else {
-                    partialPath.append(".").append(parts[i]);
-                    this.shouldVisitSet.add(partialPath.toString());
-                }
+            while (! parts.isLeaf()) {
+                parts = parts.next(); // first next() skips "$"
+                partialPath.append(parts.getPathFragment());
+                this.shouldVisitSet.add(partialPath.toString());
             }
         }
     }
@@ -118,7 +125,8 @@ public class JsonVisitor
             int size = arrayValue.size();
             Value[] newValue = new Value[size];
             for (int i = 0; i < size; i++) {
-                String k = new StringBuilder(rootPath).append("[").append(Integer.toString(i)).append("]").toString();
+                String pathFragment = ArrayPathToken.getPathFragment(i);
+                String k = new StringBuilder(rootPath).append(pathFragment).toString();
                 if (!shouldVisit(k)) {
                     k = new StringBuilder(rootPath).append("[*]").toString(); // try [*] too
                 }
@@ -135,7 +143,8 @@ public class JsonVisitor
             for (Map.Entry<Value, Value> entry : mapValue.entrySet()) {
                 Value k = entry.getKey();
                 Value v = entry.getValue();
-                String newPath = new StringBuilder(rootPath).append(".").append(k.asStringValue().asString()).toString();
+                String pathFragment = PropertyPathToken.getPathFragment(k.asStringValue().asString());
+                String newPath = new StringBuilder(rootPath).append(pathFragment).toString();
                 Value r = visit(newPath, v);
                 newValue[i++] = k;
                 newValue[i++] = r;

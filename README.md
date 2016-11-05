@@ -19,17 +19,23 @@ A filter plugin for Embulk to cast column type.
 
 See [example.csv](./example/example.csv) and [example.yml](./example/example.yml).
 
-## JSONPath (like) name
+## JSONPath
 
 For `type: json` column, you can specify [JSONPath](http://goessner.net/articles/JsonPath/) for column's name as:
 
 ```
-$.payload.key1
-$.payload.array[0]
-$.payload.array[*]
+name: $.payload.key1
+name: "$.payload.array[0]"
+name: "$.payload.array[*]"
+name: $['payload']['key1.key2']
 ```
 
-NOTE: JSONPath syntax is not fully supported
+Following operators of JSONPath are not supported:
+
+* Multiple properties such as `['name','name']`
+* Multiple array indexes such as `[1,2]`
+* Array slice such as `[1:2]`
+* Filter expression such as `[?(<expression>)]`
 
 ## ToDo
 
