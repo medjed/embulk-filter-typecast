@@ -6,7 +6,6 @@ import org.embulk.spi.time.Timestamp;
 import org.embulk.spi.time.TimestampFormatter;
 import org.embulk.spi.time.TimestampParser;
 import org.joda.time.DateTimeZone;
-import org.jruby.embed.ScriptingContainer;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -21,14 +20,12 @@ public class TestTimestampCast
 {
     @Rule
     public EmbulkTestRuntime runtime = new EmbulkTestRuntime();
-    public ScriptingContainer jruby;
     public Timestamp timestamp;
 
     @Before
     public void createResource()
     {
         timestamp = Timestamp.ofEpochSecond(1463084053, 500000000);
-        jruby = new ScriptingContainer();
     }
 
     @Test(expected = DataException.class)
@@ -53,7 +50,7 @@ public class TestTimestampCast
     @Test
     public void asString()
     {
-        TimestampFormatter formatter = new TimestampFormatter(jruby, "%Y-%m-%d %H:%M:%S.%6N", DateTimeZone.UTC);
+        TimestampFormatter formatter = new TimestampFormatter("%Y-%m-%d %H:%M:%S.%6N", DateTimeZone.UTC);
         assertEquals("2016-05-12 20:14:13.500000", TimestampCast.asString(timestamp, formatter));
     }
 
