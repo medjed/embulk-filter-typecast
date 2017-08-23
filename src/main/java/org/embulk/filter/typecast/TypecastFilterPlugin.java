@@ -22,7 +22,6 @@ import org.embulk.spi.Schema;
 import org.embulk.spi.type.TimestampType;
 import org.embulk.spi.type.Type;
 import org.joda.time.DateTimeZone;
-import org.jruby.embed.ScriptingContainer;
 import org.slf4j.Logger;
 
 import java.util.List;
@@ -70,9 +69,6 @@ public class TypecastFilterPlugin implements FilterPlugin
         @Config("default_timestamp_format")
         @ConfigDefault("\"%Y-%m-%d %H:%M:%S.%N %z\"")
         public String getDefaultTimestampFormat();
-
-        @ConfigInject
-        ScriptingContainer getJRuby();
     }
 
     @Override

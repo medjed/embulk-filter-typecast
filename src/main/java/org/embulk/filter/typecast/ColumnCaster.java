@@ -95,14 +95,14 @@ class ColumnCaster
     {
         DateTimeZone timezone = columnConfig.getTimeZone().or(task.getDefaultTimeZone());
         String format = columnConfig.getFormat().or(task.getDefaultTimestampFormat());
-        return new TimestampParser(task.getJRuby(), format, timezone);
+        return new TimestampParser(format, timezone);
     }
 
     private TimestampFormatter getTimestampFormatter(ColumnConfig columnConfig, PluginTask task)
     {
         String format = columnConfig.getFormat().or(task.getDefaultTimestampFormat());
         DateTimeZone timezone = columnConfig.getTimeZone().or(task.getDefaultTimeZone());
-        return new TimestampFormatter(task.getJRuby(), format, timezone);
+        return new TimestampFormatter(format, timezone);
     }
 
     public void setFromBoolean(Column outputColumn, boolean value)
