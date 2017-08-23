@@ -1,3 +1,10 @@
+# 0.2.0 (2017-08-23)
+
+Changes:
+
+* Support new TimestampParser and TimestampFormatter API of embulk >= 0.8.29
+  * Note that this plugin now requires embulk >= 0.8.29
+
 # 0.1.5 (2016-11-06)
 
 Enhancements:
