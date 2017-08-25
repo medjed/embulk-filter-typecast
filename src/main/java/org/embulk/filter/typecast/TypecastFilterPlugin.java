@@ -49,6 +49,10 @@ public class TypecastFilterPlugin implements FilterPlugin
         @Config("format")
         @ConfigDefault("null")
         public Optional<String> getFormat();
+
+        @Config("date")
+        @ConfigDefault("null")
+        public Optional<String> getDate();
     }
 
     public interface PluginTask extends Task
@@ -68,6 +72,10 @@ public class TypecastFilterPlugin implements FilterPlugin
         @Config("default_timestamp_format")
         @ConfigDefault("\"%Y-%m-%d %H:%M:%S.%N %z\"")
         public String getDefaultTimestampFormat();
+
+        @Config("default_date")
+        @ConfigDefault("\"1970-01-01\"")
+        public String getDefaultDate();
     }
 
     @Override
