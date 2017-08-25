@@ -1,5 +1,7 @@
 package org.embulk.filter.typecast;
 
+import com.google.common.base.Optional;
+
 import io.github.medjed.jsonpathcompiler.expressions.path.PathCompiler;
 import io.github.medjed.jsonpathcompiler.expressions.path.PropertyPathToken;
 import org.embulk.filter.typecast.TypecastFilterPlugin.ColumnConfig;
@@ -27,6 +29,7 @@ import org.embulk.spi.type.StringType;
 import org.embulk.spi.type.TimestampType;
 import org.embulk.spi.type.Type;
 import org.joda.time.DateTimeZone;
+import org.jruby.embed.ScriptingContainer;
 import org.msgpack.value.Value;
 
 import org.slf4j.Logger;
@@ -68,7 +71,7 @@ class ColumnCaster
             }
             Column inputColumn = inputSchema.lookupColumn(columnConfig.getName());
             if (inputColumn.getType() instanceof StringType && columnConfig.getType() instanceof TimestampType) {
-                TimestampParser parser = getTimestampParser(columnConfig, task);
+                TimestampParser parser = getTimestampParser(task, columnConfig);
                 this.timestampParserMap.put(columnConfig.getName(), parser);
             }
         }
@@ -83,24 +86,157 @@ class ColumnCaster
             }
             Column inputColumn = inputSchema.lookupColumn(columnConfig.getName());
             if (inputColumn.getType() instanceof TimestampType && columnConfig.getType() instanceof StringType) {
-                TimestampFormatter parser = getTimestampFormatter(columnConfig, task);
+                TimestampFormatter parser = getTimestampFormatter(task, columnConfig);
                 this.timestampFormatterMap.put(columnConfig.getName(), parser);
             }
         }
     }
 
-    private TimestampParser getTimestampParser(ColumnConfig columnConfig, PluginTask task)
+    private class TimestampParserTaskImpl implements TimestampParser.Task
     {
-        DateTimeZone timezone = columnConfig.getTimeZone().or(task.getDefaultTimeZone());
-        String format = columnConfig.getFormat().or(task.getDefaultTimestampFormat());
-        return new TimestampParser(format, timezone);
+        private final DateTimeZone defaultTimeZone;
+        private final String defaultTimestampFormat;
+        private final String defaultDate;
+        public TimestampParserTaskImpl(
+                DateTimeZone defaultTimeZone,
+                String defaultTimestampFormat,
+                String defaultDate)
+        {
+            this.defaultTimeZone = defaultTimeZone;
+            this.defaultTimestampFormat = defaultTimestampFormat;
+            this.defaultDate = defaultDate;
+        }
+        @Override
+        public DateTimeZone getDefaultTimeZone()
+        {
+            return this.defaultTimeZone;
+        }
+        @Override
+        public String getDefaultTimestampFormat()
+        {
+            return this.defaultTimestampFormat;
+        }
+        @Override
+        public String getDefaultDate()
+        {
+            return this.defaultDate;
+        }
+        @Override
+        public ScriptingContainer getJRuby()
+        {
+            return null;
+        }
     }
 
-    private TimestampFormatter getTimestampFormatter(ColumnConfig columnConfig, PluginTask task)
+    private class TimestampParserColumnOptionImpl implements TimestampParser.TimestampColumnOption
     {
-        String format = columnConfig.getFormat().or(task.getDefaultTimestampFormat());
-        DateTimeZone timezone = columnConfig.getTimeZone().or(task.getDefaultTimeZone());
-        return new TimestampFormatter(format, timezone);
+        private final Optional<DateTimeZone> timeZone;
+        private final Optional<String> format;
+        private final Optional<String> date;
+        public TimestampParserColumnOptionImpl(
+                Optional<DateTimeZone> timeZone,
+                Optional<String> format,
+                Optional<String> date)
+        {
+            this.timeZone = timeZone;
+            this.format = format;
+            this.date = date;
+        }
+        @Override
+        public Optional<DateTimeZone> getTimeZone()
+        {
+            return this.timeZone;
+        }
+        @Override
+        public Optional<String> getFormat()
+        {
+            return this.format;
+        }
+        @Override
+        public Optional<String> getDate()
+        {
+            return this.date;
+        }
+    }
+
+    private class TimestampFormatterTaskImpl implements TimestampFormatter.Task
+    {
+        private final DateTimeZone defaultTimeZone;
+        private final String defaultTimestampFormat;
+        public TimestampFormatterTaskImpl(
+                DateTimeZone defaultTimeZone,
+                String defaultTimestampFormat)
+        {
+            this.defaultTimeZone = defaultTimeZone;
+            this.defaultTimestampFormat = defaultTimestampFormat;
+        }
+        @Override
+        public DateTimeZone getDefaultTimeZone()
+        {
+            return this.defaultTimeZone;
+        }
+        @Override
+        public String getDefaultTimestampFormat()
+        {
+            return this.defaultTimestampFormat;
+        }
+        @Override
+        public ScriptingContainer getJRuby()
+        {
+            return null;
+        }
+    }
+
+    private class TimestampFormatterColumnOptionImpl implements TimestampFormatter.TimestampColumnOption
+    {
+        private final Optional<DateTimeZone> timeZone;
+        private final Optional<String> format;
+        public TimestampFormatterColumnOptionImpl(
+                Optional<DateTimeZone> timeZone,
+                Optional<String> format)
+        {
+            this.timeZone = timeZone;
+            this.format = format;
+        }
+        @Override
+        public Optional<DateTimeZone> getTimeZone()
+        {
+            return this.timeZone;
+        }
+        @Override
+        public Optional<String> getFormat()
+        {
+            return this.format;
+        }
+    }
+
+    private TimestampParser getTimestampParser(PluginTask task, ColumnConfig columnConfig)
+    {
+        // ToDo: Use following codes after deciding to drop supporting embulk < 0.8.29.
+        //
+        //     DateTimeZone timezone = columnConfig.getTimeZone().or(task.getDefaultTimeZone());
+        //     String format = columnConfig.getFormat().or(task.getDefaultTimestampFormat());
+        //     String date = columnConfig.getDate().or(task.getDefaultDate());
+        //     return new TimestampParser(format, timezone, date);
+        TimestampParserTaskImpl t = new TimestampParserTaskImpl(
+                task.getDefaultTimeZone(), task.getDefaultTimestampFormat(), task.getDefaultDate());
+        TimestampParserColumnOptionImpl columnOption = new TimestampParserColumnOptionImpl(
+                columnConfig.getTimeZone(), columnConfig.getFormat(), columnConfig.getDate());
+        return new TimestampParser(t, columnOption);
+    }
+
+    private TimestampFormatter getTimestampFormatter(PluginTask task, ColumnConfig columnConfig)
+    {
+        // ToDo: Use following codes after deciding to drop supporting embulk < 0.8.29.
+        //
+        //     String format = columnConfig.getFormat().or(task.getDefaultTimestampFormat());
+        //     DateTimeZone timezone = columnConfig.getTimeZone().or(task.getDefaultTimeZone());
+        //     return new TimestampFormatter(format, timezone);
+        TimestampFormatterTaskImpl t = new TimestampFormatterTaskImpl(
+                task.getDefaultTimeZone(), task.getDefaultTimestampFormat());
+        TimestampFormatterColumnOptionImpl columnOption = new TimestampFormatterColumnOptionImpl(
+                columnConfig.getTimeZone(), columnConfig.getFormat());
+        return new TimestampFormatter(t, Optional.of(columnOption));
     }
 
     public void setFromBoolean(Column outputColumn, boolean value)
