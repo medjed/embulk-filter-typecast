@@ -4,17 +4,12 @@ import org.embulk.EmbulkTestRuntime;
 import org.embulk.spi.DataException;
 import org.embulk.spi.time.Timestamp;
 import org.embulk.spi.time.TimestampFormatter;
-import org.embulk.spi.time.TimestampParser;
 import org.joda.time.DateTimeZone;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.msgpack.value.Value;
-import org.msgpack.value.ValueFactory;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 public class TestTimestampCast
 {

@@ -1,7 +1,5 @@
 package org.embulk.filter.typecast;
 
-import io.github.medjed.jsonpathcompiler.expressions.Path;
-import io.github.medjed.jsonpathcompiler.expressions.Utils;
 import io.github.medjed.jsonpathcompiler.expressions.path.PathCompiler;
 import io.github.medjed.jsonpathcompiler.expressions.path.PropertyPathToken;
 import org.embulk.filter.typecast.TypecastFilterPlugin.ColumnConfig;
