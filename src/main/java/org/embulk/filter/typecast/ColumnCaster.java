@@ -29,7 +29,6 @@ import org.embulk.spi.type.StringType;
 import org.embulk.spi.type.TimestampType;
 import org.embulk.spi.type.Type;
 import org.joda.time.DateTimeZone;
-import org.jruby.embed.ScriptingContainer;
 import org.msgpack.value.Value;
 
 import org.slf4j.Logger;
@@ -289,14 +288,14 @@ class ColumnCaster
             return this.defaultTimeZone;
         }
         @Override
+        public String getDefaultTimeZoneId()
+        {
+            return this.defaultTimeZone.getID();
+        }
+        @Override
         public String getDefaultTimestampFormat()
         {
             return this.defaultTimestampFormat;
-        }
-        @Override
-        public ScriptingContainer getJRuby()
-        {
-            return null;
         }
     }
 
@@ -321,9 +320,19 @@ class ColumnCaster
         {
             return this.format;
         }
+        @Override
+        public Optional<String> getTimeZoneId()
+        {
+            if (this.timeZone.isPresent()) {
+                return Optional.of(this.timeZone.get().getID());
+            }
+            else {
+                return Optional.absent();
+            }
+        }
     }
 
-    // ToDo: Replace with `new TimestampFormatter(format, timezone)`
+    // ToDo: Replace with `TimestampFormatter.of(Task, TimestampColumnOption)`
     // after deciding to drop supporting embulk < 0.8.29.
     private TimestampFormatter createTimestampFormatter(String format, DateTimeZone timezone)
     {
@@ -353,6 +362,11 @@ class ColumnCaster
             return this.defaultTimeZone;
         }
         @Override
+        public String getDefaultTimeZoneId()
+        {
+            return this.defaultTimeZone.getID();
+        }
+        @Override
         public String getDefaultTimestampFormat()
         {
             return this.defaultTimestampFormat;
@@ -361,11 +375,6 @@ class ColumnCaster
         public String getDefaultDate()
         {
             return this.defaultDate;
-        }
-        @Override
-        public ScriptingContainer getJRuby()
-        {
-            return null;
         }
     }
 
@@ -398,16 +407,26 @@ class ColumnCaster
         {
             return this.date;
         }
+        @Override
+        public Optional<String> getTimeZoneId()
+        {
+            if (this.timeZone.isPresent()) {
+                return Optional.of(this.timeZone.get().getID());
+            }
+            else {
+                return Optional.absent();
+            }
+        }
     }
 
-    // ToDo: Replace with `new TimestampParser(format, timezone)`
+    // ToDo: Replace with `TimestampParser.of(Task, TimestampColumnOption)`
     // after deciding to drop supporting embulk < 0.8.29.
     private TimestampParser createTimestampParser(String format, DateTimeZone timezone)
     {
         return createTimestampParser(format, timezone, "1970-01-01");
     }
 
-    // ToDo: Replace with `new TimestampParser(format, timezone, date)`
+    // ToDo: Replace with `TimestampParser.of(Task, TimestampColumnOption)`
     // after deciding to drop supporting embulk < 0.8.29.
     private TimestampParser createTimestampParser(String format, DateTimeZone timezone, String date)
     {
