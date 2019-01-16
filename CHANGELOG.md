@@ -1,3 +1,9 @@
+# 0.2.2 (2019-01-16)
+
+Enhancements:
+
+* Support embulk >= 0.9.0 (thanks to @hiroyuki-sato)
+
 # 0.2.1 (2017-08-26)
 
 Enhancements:
