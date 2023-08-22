@@ -1,12 +1,11 @@
 package org.embulk.filter.typecast;
 
-import com.google.common.base.Optional;
-
-import io.github.medjed.jsonpathcompiler.expressions.path.PathCompiler;
-import io.github.medjed.jsonpathcompiler.expressions.path.PropertyPathToken;
-import org.embulk.filter.typecast.TypecastFilterPlugin.ColumnConfig;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jayway.jsonpath.JsonPath;
+import com.jayway.jsonpath.PathNotFoundException;
 import org.embulk.filter.typecast.TypecastFilterPlugin.PluginTask;
-
+import org.embulk.filter.typecast.TypecastFilterPlugin.TypecastColumnConfig;
 import org.embulk.filter.typecast.cast.BooleanCast;
 import org.embulk.filter.typecast.cast.DoubleCast;
 import org.embulk.filter.typecast.cast.JsonCast;
@@ -14,13 +13,10 @@ import org.embulk.filter.typecast.cast.LongCast;
 import org.embulk.filter.typecast.cast.StringCast;
 import org.embulk.filter.typecast.cast.TimestampCast;
 import org.embulk.spi.Column;
-import org.embulk.spi.Exec;
+import org.embulk.spi.DataException;
 import org.embulk.spi.PageBuilder;
-import org.embulk.spi.PageReader;
 import org.embulk.spi.Schema;
 import org.embulk.spi.time.Timestamp;
-import org.embulk.spi.time.TimestampFormatter;
-import org.embulk.spi.time.TimestampParser;
 import org.embulk.spi.type.BooleanType;
 import org.embulk.spi.type.DoubleType;
 import org.embulk.spi.type.JsonType;
@@ -28,65 +24,46 @@ import org.embulk.spi.type.LongType;
 import org.embulk.spi.type.StringType;
 import org.embulk.spi.type.TimestampType;
 import org.embulk.spi.type.Type;
-import org.joda.time.DateTimeZone;
+import org.embulk.util.config.ConfigMapper;
+import org.embulk.util.config.units.ColumnConfig;
+import org.embulk.util.json.JsonParser;
+import org.embulk.util.timestamp.TimestampFormatter;
 import org.msgpack.value.Value;
-
-import org.slf4j.Logger;
 
 import java.util.HashMap;
 
 class ColumnCaster
 {
-    private static final Logger logger = Exec.getLogger(TypecastFilterPlugin.class);
-    private final PluginTask task;
-    private final Schema inputSchema;
-    private final Schema outputSchema;
-    private final PageReader pageReader;
-    private final PageBuilder pageBuilder;
-    private final HashMap<String, TimestampParser> timestampParserMap = new HashMap<>();
-    private final HashMap<String, TimestampFormatter> timestampFormatterMap = new HashMap<>();
-    private final JsonVisitor jsonVisitor;
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-    ColumnCaster(TypecastFilterPlugin.PluginTask task, Schema inputSchema, Schema outputSchema,
-            PageReader pageReader, PageBuilder pageBuilder)
+    private final PluginTask task;
+    private final ConfigMapper configMapper;
+    private final Schema inputSchema;
+    private final PageBuilder pageBuilder;
+    private final HashMap<String, TimestampFormatter> timestampFormatterMap = new HashMap<>();
+    private final HashMap<String, JsonPath> jsonPathMap = new HashMap<>();
+
+    ColumnCaster(PluginTask task, ConfigMapper configMapper, Schema inputSchema,
+                 PageBuilder pageBuilder)
     {
         this.task = task;
+        this.configMapper = configMapper;
         this.inputSchema = inputSchema;
-        this.outputSchema = outputSchema;
-        this.pageReader = pageReader;
         this.pageBuilder = pageBuilder;
 
-        buildTimestampParserMap();
-        buildTimestampFormatterMap();
-        this.jsonVisitor = new JsonVisitor(task, inputSchema, outputSchema);
+        buildColumnConfigMap();
     }
 
-    private void buildTimestampParserMap()
-    {
-        // columnName => TimestampParser
-        for (ColumnConfig columnConfig : task.getColumns()) {
-            if (PathCompiler.isProbablyJsonPath(columnConfig.getName())) {
-                continue; // type: json columns do not support type: timestamp
-            }
-            Column inputColumn = inputSchema.lookupColumn(columnConfig.getName());
-            if (inputColumn.getType() instanceof StringType && columnConfig.getType() instanceof TimestampType) {
-                TimestampParser parser = createTimestampParser(task, columnConfig);
-                this.timestampParserMap.put(columnConfig.getName(), parser);
-            }
-        }
-    }
-
-    private void buildTimestampFormatterMap()
+    private void buildColumnConfigMap()
     {
         // columnName => TimestampFormatter
-        for (ColumnConfig columnConfig : task.getColumns()) {
-            if (PathCompiler.isProbablyJsonPath(columnConfig.getName())) {
-                continue; // type: json columns do not have type: timestamp
-            }
+        for (ColumnConfig columnConfig : task.getColumns().getColumns()) {
+            TypecastColumnConfig typecastColumnConfig = configMapper.map(columnConfig.getOption(), TypecastColumnConfig.class);
+            typecastColumnConfig.getJsonPath().ifPresent(jsonPath -> jsonPathMap.put(columnConfig.getName(), JsonPath.compile(jsonPath)));
             Column inputColumn = inputSchema.lookupColumn(columnConfig.getName());
             if (inputColumn.getType() instanceof TimestampType && columnConfig.getType() instanceof StringType) {
-                TimestampFormatter parser = createTimestampFormatter(task, columnConfig);
-                this.timestampFormatterMap.put(columnConfig.getName(), parser);
+                TimestampFormatter formatter = createTimestampFormatter(task, typecastColumnConfig);
+                this.timestampFormatterMap.put(columnConfig.getName(), formatter);
             }
         }
     }
@@ -96,23 +73,17 @@ class ColumnCaster
         Type outputType = outputColumn.getType();
         if (outputType instanceof BooleanType) {
             pageBuilder.setBoolean(outputColumn, BooleanCast.asBoolean(value));
-        }
-        else if (outputType instanceof LongType) {
+        } else if (outputType instanceof LongType) {
             pageBuilder.setLong(outputColumn, BooleanCast.asLong(value));
-        }
-        else if (outputType instanceof DoubleType) {
+        } else if (outputType instanceof DoubleType) {
             pageBuilder.setDouble(outputColumn, BooleanCast.asDouble(value));
-        }
-        else if (outputType instanceof StringType) {
+        } else if (outputType instanceof StringType) {
             pageBuilder.setString(outputColumn, BooleanCast.asString(value));
-        }
-        else if (outputType instanceof TimestampType) {
+        } else if (outputType instanceof TimestampType) {
             pageBuilder.setTimestamp(outputColumn, BooleanCast.asTimestamp(value));
-        }
-        else if (outputType instanceof JsonType) {
+        } else if (outputType instanceof JsonType) {
             pageBuilder.setJson(outputColumn, BooleanCast.asJson(value));
-        }
-        else {
+        } else {
             assert (false);
         }
     }
@@ -122,23 +93,17 @@ class ColumnCaster
         Type outputType = outputColumn.getType();
         if (outputType instanceof BooleanType) {
             pageBuilder.setBoolean(outputColumn, LongCast.asBoolean(value));
-        }
-        else if (outputType instanceof LongType) {
+        } else if (outputType instanceof LongType) {
             pageBuilder.setLong(outputColumn, LongCast.asLong(value));
-        }
-        else if (outputType instanceof DoubleType) {
+        } else if (outputType instanceof DoubleType) {
             pageBuilder.setDouble(outputColumn, LongCast.asDouble(value));
-        }
-        else if (outputType instanceof StringType) {
+        } else if (outputType instanceof StringType) {
             pageBuilder.setString(outputColumn, LongCast.asString(value));
-        }
-        else if (outputType instanceof TimestampType) {
+        } else if (outputType instanceof TimestampType) {
             pageBuilder.setTimestamp(outputColumn, LongCast.asTimestamp(value));
-        }
-        else if (outputType instanceof JsonType) {
+        } else if (outputType instanceof JsonType) {
             pageBuilder.setJson(outputColumn, LongCast.asJson(value));
-        }
-        else {
+        } else {
             assert false;
         }
     }
@@ -148,23 +113,17 @@ class ColumnCaster
         Type outputType = outputColumn.getType();
         if (outputType instanceof BooleanType) {
             pageBuilder.setBoolean(outputColumn, DoubleCast.asBoolean(value));
-        }
-        else if (outputType instanceof LongType) {
+        } else if (outputType instanceof LongType) {
             pageBuilder.setLong(outputColumn, DoubleCast.asLong(value));
-        }
-        else if (outputType instanceof DoubleType) {
+        } else if (outputType instanceof DoubleType) {
             pageBuilder.setDouble(outputColumn, DoubleCast.asDouble(value));
-        }
-        else if (outputType instanceof StringType) {
+        } else if (outputType instanceof StringType) {
             pageBuilder.setString(outputColumn, DoubleCast.asString(value));
-        }
-        else if (outputType instanceof TimestampType) {
+        } else if (outputType instanceof TimestampType) {
             pageBuilder.setTimestamp(outputColumn, DoubleCast.asTimestamp(value));
-        }
-        else if (outputType instanceof JsonType) {
+        } else if (outputType instanceof JsonType) {
             pageBuilder.setJson(outputColumn, DoubleCast.asJson(value));
-        }
-        else {
+        } else {
             assert false;
         }
     }
@@ -174,28 +133,31 @@ class ColumnCaster
         Type outputType = outputColumn.getType();
         if (outputType instanceof BooleanType) {
             pageBuilder.setBoolean(outputColumn, StringCast.asBoolean(value));
-        }
-        else if (outputType instanceof LongType) {
+        } else if (outputType instanceof LongType) {
             pageBuilder.setLong(outputColumn, StringCast.asLong(value));
-        }
-        else if (outputType instanceof DoubleType) {
+        } else if (outputType instanceof DoubleType) {
             pageBuilder.setDouble(outputColumn, StringCast.asDouble(value));
-        }
-        else if (outputType instanceof StringType) {
+        } else if (outputType instanceof StringType) {
             pageBuilder.setString(outputColumn, StringCast.asString(value));
-        }
-        else if (outputType instanceof TimestampType) {
-            TimestampParser timestampParser = timestampParserMap.get(outputColumn.getName());
+        } else if (outputType instanceof TimestampType) {
+            TimestampFormatter timestampParser = timestampFormatterMap.get(outputColumn.getName());
             pageBuilder.setTimestamp(outputColumn, StringCast.asTimestamp(value, timestampParser));
-        }
-        else if (outputType instanceof JsonType) {
+        } else if (outputType instanceof JsonType) {
             Value jsonValue = StringCast.asJson(value);
-            String name = outputColumn.getName();
-            String jsonPath = new StringBuilder("$").append(PropertyPathToken.getPathFragment(name)).toString();
-            Value castedValue = jsonVisitor.visit(jsonPath, jsonValue);
-            pageBuilder.setJson(outputColumn, castedValue);
-        }
-        else {
+            JsonPath jsonPath = jsonPathMap.get(outputColumn.getName());
+            if (jsonPath != null) {
+                try {
+                    Object rawValue = jsonPath.read(value);
+                    String partialJson = OBJECT_MAPPER.writeValueAsString(rawValue);
+                    JsonParser jsonParser = new JsonParser();
+                    pageBuilder.setJson(outputColumn, jsonParser.parse(partialJson));
+                } catch (JsonProcessingException | PathNotFoundException e) {
+                    throw new DataException(e);
+                }
+            } else {
+                pageBuilder.setJson(outputColumn, jsonValue);
+            }
+        } else {
             assert false;
         }
     }
@@ -205,234 +167,61 @@ class ColumnCaster
         Type outputType = outputColumn.getType();
         if (outputType instanceof BooleanType) {
             pageBuilder.setBoolean(outputColumn, TimestampCast.asBoolean(value));
-        }
-        else if (outputType instanceof LongType) {
+        } else if (outputType instanceof LongType) {
             pageBuilder.setLong(outputColumn, TimestampCast.asLong(value));
-        }
-        else if (outputType instanceof DoubleType) {
+        } else if (outputType instanceof DoubleType) {
             pageBuilder.setDouble(outputColumn, TimestampCast.asDouble(value));
-        }
-        else if (outputType instanceof StringType) {
+        } else if (outputType instanceof StringType) {
             TimestampFormatter timestampFormatter = timestampFormatterMap.get(outputColumn.getName());
             pageBuilder.setString(outputColumn, TimestampCast.asString(value, timestampFormatter));
-        }
-        else if (outputType instanceof TimestampType) {
+        } else if (outputType instanceof TimestampType) {
             pageBuilder.setTimestamp(outputColumn, TimestampCast.asTimestamp(value));
-        }
-        else if (outputType instanceof JsonType) {
+        } else if (outputType instanceof JsonType) {
             pageBuilder.setJson(outputColumn, TimestampCast.asJson(value));
-        }
-        else {
+        } else {
             assert false;
         }
     }
 
     public void setFromJson(Column outputColumn, Value value)
     {
-        String name = outputColumn.getName();
-        String jsonPath = new StringBuilder("$").append(PropertyPathToken.getPathFragment(name)).toString();
-        Value castedValue = jsonVisitor.visit(jsonPath, value);
+        JsonPath jsonPath = jsonPathMap.get(outputColumn.getName());
+        Value castedValue;
+        if (jsonPath != null) {
+            String partialJson;
+            try {
+                Object rawValue = jsonPath.read(value.toJson());
+                partialJson = OBJECT_MAPPER.writeValueAsString(rawValue);
+            } catch (JsonProcessingException | PathNotFoundException e) {
+                throw new DataException(e);
+            }
+            JsonParser jsonParser = new JsonParser();
+            castedValue = jsonParser.parse(partialJson);
+        } else {
+            castedValue = value;
+        }
         Type outputType = outputColumn.getType();
         if (outputType instanceof BooleanType) {
             pageBuilder.setBoolean(outputColumn, JsonCast.asBoolean(castedValue));
-        }
-        else if (outputType instanceof LongType) {
+        } else if (outputType instanceof LongType) {
             pageBuilder.setLong(outputColumn, JsonCast.asLong(castedValue));
-        }
-        else if (outputType instanceof DoubleType) {
+        } else if (outputType instanceof DoubleType) {
             pageBuilder.setDouble(outputColumn, JsonCast.asDouble(castedValue));
-        }
-        else if (outputType instanceof StringType) {
+        } else if (outputType instanceof StringType) {
             pageBuilder.setString(outputColumn, JsonCast.asString(castedValue));
-        }
-        else if (outputType instanceof TimestampType) {
+        } else if (outputType instanceof TimestampType) {
             pageBuilder.setTimestamp(outputColumn, JsonCast.asTimestamp(castedValue));
-        }
-        else if (outputType instanceof JsonType) {
+        } else if (outputType instanceof JsonType) {
             pageBuilder.setJson(outputColumn, JsonCast.asJson(castedValue));
-        }
-        else {
+        } else {
             assert false;
         }
     }
 
-    private TimestampFormatter createTimestampFormatter(PluginTask task, ColumnConfig columnConfig)
+    private TimestampFormatter createTimestampFormatter(PluginTask task, TypecastColumnConfig columnConfig)
     {
-        String format = columnConfig.getFormat().or(task.getDefaultTimestampFormat());
-        DateTimeZone timezone = columnConfig.getTimeZone().or(task.getDefaultTimeZone());
-        return createTimestampFormatter(format, timezone);
-    }
-
-    private TimestampParser createTimestampParser(PluginTask task, ColumnConfig columnConfig)
-    {
-        DateTimeZone timezone = columnConfig.getTimeZone().or(task.getDefaultTimeZone());
-        String format = columnConfig.getFormat().or(task.getDefaultTimestampFormat());
-        String date = columnConfig.getDate().or(task.getDefaultDate());
-        return createTimestampParser(format, timezone, date);
-    }
-
-    private class TimestampFormatterTaskImpl implements TimestampFormatter.Task
-    {
-        private final DateTimeZone defaultTimeZone;
-        private final String defaultTimestampFormat;
-        public TimestampFormatterTaskImpl(
-                DateTimeZone defaultTimeZone,
-                String defaultTimestampFormat)
-        {
-            this.defaultTimeZone = defaultTimeZone;
-            this.defaultTimestampFormat = defaultTimestampFormat;
-        }
-        @Override
-        public DateTimeZone getDefaultTimeZone()
-        {
-            return this.defaultTimeZone;
-        }
-        @Override
-        public String getDefaultTimeZoneId()
-        {
-            return this.defaultTimeZone.getID();
-        }
-        @Override
-        public String getDefaultTimestampFormat()
-        {
-            return this.defaultTimestampFormat;
-        }
-    }
-
-    private class TimestampFormatterColumnOptionImpl implements TimestampFormatter.TimestampColumnOption
-    {
-        private final Optional<DateTimeZone> timeZone;
-        private final Optional<String> format;
-        public TimestampFormatterColumnOptionImpl(
-                Optional<DateTimeZone> timeZone,
-                Optional<String> format)
-        {
-            this.timeZone = timeZone;
-            this.format = format;
-        }
-        @Override
-        public Optional<DateTimeZone> getTimeZone()
-        {
-            return this.timeZone;
-        }
-        @Override
-        public Optional<String> getFormat()
-        {
-            return this.format;
-        }
-        @Override
-        public Optional<String> getTimeZoneId()
-        {
-            if (this.timeZone.isPresent()) {
-                return Optional.of(this.timeZone.get().getID());
-            }
-            else {
-                return Optional.absent();
-            }
-        }
-    }
-
-    // ToDo: Replace with `TimestampFormatter.of(Task, TimestampColumnOption)`
-    // after deciding to drop supporting embulk < 0.8.29.
-    private TimestampFormatter createTimestampFormatter(String format, DateTimeZone timezone)
-    {
-        TimestampFormatterTaskImpl task = new TimestampFormatterTaskImpl(timezone, format);
-        TimestampFormatterColumnOptionImpl columnOption = new TimestampFormatterColumnOptionImpl(
-                Optional.of(timezone), Optional.of(format));
-        return new TimestampFormatter(task, Optional.of(columnOption));
-    }
-
-    private class TimestampParserTaskImpl implements TimestampParser.Task
-    {
-        private final DateTimeZone defaultTimeZone;
-        private final String defaultTimestampFormat;
-        private final String defaultDate;
-        public TimestampParserTaskImpl(
-                DateTimeZone defaultTimeZone,
-                String defaultTimestampFormat,
-                String defaultDate)
-        {
-            this.defaultTimeZone = defaultTimeZone;
-            this.defaultTimestampFormat = defaultTimestampFormat;
-            this.defaultDate = defaultDate;
-        }
-        @Override
-        public DateTimeZone getDefaultTimeZone()
-        {
-            return this.defaultTimeZone;
-        }
-        @Override
-        public String getDefaultTimeZoneId()
-        {
-            return this.defaultTimeZone.getID();
-        }
-        @Override
-        public String getDefaultTimestampFormat()
-        {
-            return this.defaultTimestampFormat;
-        }
-        @Override
-        public String getDefaultDate()
-        {
-            return this.defaultDate;
-        }
-    }
-
-    private class TimestampParserColumnOptionImpl implements TimestampParser.TimestampColumnOption
-    {
-        private final Optional<DateTimeZone> timeZone;
-        private final Optional<String> format;
-        private final Optional<String> date;
-        public TimestampParserColumnOptionImpl(
-                Optional<DateTimeZone> timeZone,
-                Optional<String> format,
-                Optional<String> date)
-        {
-            this.timeZone = timeZone;
-            this.format = format;
-            this.date = date;
-        }
-        @Override
-        public Optional<DateTimeZone> getTimeZone()
-        {
-            return this.timeZone;
-        }
-        @Override
-        public Optional<String> getFormat()
-        {
-            return this.format;
-        }
-        @Override
-        public Optional<String> getDate()
-        {
-            return this.date;
-        }
-        @Override
-        public Optional<String> getTimeZoneId()
-        {
-            if (this.timeZone.isPresent()) {
-                return Optional.of(this.timeZone.get().getID());
-            }
-            else {
-                return Optional.absent();
-            }
-        }
-    }
-
-    // ToDo: Replace with `TimestampParser.of(Task, TimestampColumnOption)`
-    // after deciding to drop supporting embulk < 0.8.29.
-    private TimestampParser createTimestampParser(String format, DateTimeZone timezone)
-    {
-        return createTimestampParser(format, timezone, "1970-01-01");
-    }
-
-    // ToDo: Replace with `TimestampParser.of(Task, TimestampColumnOption)`
-    // after deciding to drop supporting embulk < 0.8.29.
-    private TimestampParser createTimestampParser(String format, DateTimeZone timezone, String date)
-    {
-        TimestampParserTaskImpl task = new TimestampParserTaskImpl(timezone, format, date);
-        TimestampParserColumnOptionImpl columnOption = new TimestampParserColumnOptionImpl(
-                Optional.of(timezone), Optional.of(format), Optional.of(date));
-        return new TimestampParser(task, columnOption);
+        return TimestampFormatter.builder(columnConfig.getFormat().orElse(task.getDefaultTimestampFormat()), true)
+                .setDefaultZoneFromString(columnConfig.getTimeZone().orElse(task.getDefaultTimeZone()))
+                .setDefaultDateFromString(columnConfig.getDate().orElse(task.getDefaultDate())).build();
     }
 }

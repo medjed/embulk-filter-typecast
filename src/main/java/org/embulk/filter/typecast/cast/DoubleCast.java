@@ -13,32 +13,32 @@ public class DoubleCast
         return String.format("cannot cast double to %s: \"%s\"", as, value);
     }
 
-    public static boolean asBoolean(double value) throws DataException
+    public static boolean asBoolean(double value)
     {
         throw new DataException(buildErrorMessage("boolean", value));
     }
 
-    public static long asLong(double value) throws DataException
+    public static long asLong(double value)
     {
         return (long) value;
     }
 
-    public static double asDouble(double value) throws DataException
+    public static double asDouble(double value)
     {
         return value;
     }
 
-    public static String asString(double value) throws DataException
+    public static String asString(double value)
     {
         return String.valueOf(value);
     }
 
-    public static Value asJson(double value) throws DataException
+    public static Value asJson(double value)
     {
         throw new DataException(buildErrorMessage("json", value));
     }
 
-    public static Timestamp asTimestamp(double value) throws DataException
+    public static Timestamp asTimestamp(double value)
     {
         long epochSecond = (long) value;
         long nanoAdjustMent = (long) ((value - epochSecond) * 1000000000);

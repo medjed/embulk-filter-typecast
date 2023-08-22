@@ -1,13 +1,14 @@
 package org.embulk.filter.typecast.cast;
 
-import org.embulk.EmbulkTestRuntime;
 import org.embulk.spi.DataException;
 import org.embulk.spi.time.Timestamp;
-import org.embulk.spi.time.TimestampFormatter;
-import org.joda.time.DateTimeZone;
+import org.embulk.test.EmbulkTestRuntime;
+import org.embulk.util.timestamp.TimestampFormatter;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+
+import java.time.ZoneId;
 
 import static org.junit.Assert.assertEquals;
 
@@ -45,8 +46,11 @@ public class TestTimestampCast
     @Test
     public void asString()
     {
-        TimestampFormatter formatter = new TimestampFormatter("%Y-%m-%d %H:%M:%S.%6N", DateTimeZone.UTC);
-        assertEquals("2016-05-12 20:14:13.500000", TimestampCast.asString(timestamp, formatter));
+        TimestampFormatter formatter = org.embulk.util.timestamp.TimestampFormatter
+                .builder("%Y-%m-%d %H:%M:%S.%N", true)
+                .setDefaultZoneId(ZoneId.of("UTC"))
+                .build();
+        assertEquals("2016-05-12 20:14:13.500000000", TimestampCast.asString(timestamp, formatter));
     }
 
     @Test(expected = DataException.class)
