@@ -1,13 +1,7 @@
 package org.embulk.filter.typecast;
 
-import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableList;
-import io.github.medjed.jsonpathcompiler.expressions.path.PathCompiler;
-import org.embulk.config.Config;
-import org.embulk.config.ConfigDefault;
 import org.embulk.config.ConfigException;
 import org.embulk.config.ConfigSource;
-import org.embulk.config.Task;
 import org.embulk.config.TaskSource;
 
 import org.embulk.spi.Column;
@@ -20,10 +14,13 @@ import org.embulk.spi.PageReader;
 import org.embulk.spi.Schema;
 import org.embulk.spi.type.TimestampType;
 import org.embulk.spi.type.Type;
-import org.joda.time.DateTimeZone;
+import org.embulk.util.config.Config;
+import org.embulk.util.config.ConfigDefault;
+import org.embulk.util.config.Task;
 import org.slf4j.Logger;
 
 import java.util.List;
+import java.util.Optional;
 
 public class TypecastFilterPlugin implements FilterPlugin
 {
@@ -44,7 +41,7 @@ public class TypecastFilterPlugin implements FilterPlugin
 
         @Config("timezone")
         @ConfigDefault("null")
-        public Optional<DateTimeZone> getTimeZone();
+        public Optional<String> getTimeZone();
 
         @Config("format")
         @ConfigDefault("null")
@@ -67,7 +64,7 @@ public class TypecastFilterPlugin implements FilterPlugin
 
         @Config("default_timezone")
         @ConfigDefault("\"UTC\"")
-        public DateTimeZone getDefaultTimeZone();
+        public String getDefaultTimeZone();
 
         @Config("default_timestamp_format")
         @ConfigDefault("\"%Y-%m-%d %H:%M:%S.%N %z\"")

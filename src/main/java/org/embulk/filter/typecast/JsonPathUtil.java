@@ -1,15 +1,11 @@
 package org.embulk.filter.typecast;
 
-import io.github.medjed.jsonpathcompiler.InvalidPathException;
-import io.github.medjed.jsonpathcompiler.expressions.Path;
-import io.github.medjed.jsonpathcompiler.expressions.path.ArrayIndexOperation;
-import io.github.medjed.jsonpathcompiler.expressions.path.ArrayPathToken;
-import io.github.medjed.jsonpathcompiler.expressions.path.FunctionPathToken;
-import io.github.medjed.jsonpathcompiler.expressions.path.PathCompiler;
-import io.github.medjed.jsonpathcompiler.expressions.path.PathToken;
-import io.github.medjed.jsonpathcompiler.expressions.path.PredicatePathToken;
-import io.github.medjed.jsonpathcompiler.expressions.path.PropertyPathToken;
-import io.github.medjed.jsonpathcompiler.expressions.path.ScanPathToken;
+import com.jayway.jsonpath.InvalidPathException;
+import com.jayway.jsonpath.JsonPath;
+import com.jayway.jsonpath.internal.Path;
+import com.jayway.jsonpath.internal.path.CompiledPath;
+import com.jayway.jsonpath.internal.path.PathCompiler;
+import com.jayway.jsonpath.internal.path.PathToken;
 import org.embulk.config.ConfigException;
 
 public class JsonPathUtil
@@ -18,16 +14,16 @@ public class JsonPathUtil
 
     public static String getColumnName(String jsonPath)
     {
-        Path compiledPath;
+        CompiledPath compiledPath;
         try {
-            compiledPath = PathCompiler.compile(jsonPath);
+            compiledPath = (CompiledPath) PathCompiler.compile(jsonPath);
         }
         catch (InvalidPathException e) {
             throw new ConfigException(String.format("jsonpath %s, %s", jsonPath, e.getMessage()));
         }
         PathToken pathToken = compiledPath.getRoot();
-        pathToken = pathToken.next(); // skip $
-        return ((PropertyPathToken) pathToken).getProperties().get(0);
+        pathToken = pathToken.getNext(); // skip $
+        return pathToken.getNext().toString();
     }
 
     public static void assertJsonPathFormat(String path)

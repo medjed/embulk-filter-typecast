@@ -1,16 +1,11 @@
 plugins {
-    id "com.jfrog.bintray" version "1.1"
-    id "com.github.jruby-gradle.base" version "1.5.0"
     id "java"
     id "checkstyle"
+    id "org.embulk.embulk-plugins" version "0.5.5"
 }
-import com.github.jrubygradle.JRubyExec
+
 repositories {
     mavenCentral()
-    jcenter()
-}
-configurations {
-    provided
 }
 
 version = "0.2.2"
@@ -18,67 +13,84 @@ sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
 dependencies {
-    compile  "org.embulk:embulk-core:0.9.12"
-    provided "org.embulk:embulk-core:0.9.12"
-    compile  "io.github.medjed:JsonPathCompiler:0.1.1"
+    compileOnly "org.embulk:embulk-api:0.10.43"
+    compileOnly "org.embulk:embulk-spi:0.11"
+    implementation "com.jayway.jsonpath:json-path:2.8.0"
 
-    testCompile "junit:junit:4.+"
-    testCompile "org.embulk:embulk-core:0.9.12:tests"
-    testCompile "org.embulk:embulk-standards:0.9.12"
+    implementation("org.embulk:embulk-util-config:0.3.1") {
+        exclude group: "com.fasterxml.jackson.core", module: "jackson-annotations"
+        exclude group: "com.fasterxml.jackson.core", module: "jackson-core"
+        exclude group: "com.fasterxml.jackson.core", module: "jackson-databind"
+        exclude group: "com.fasterxml.jackson.datatype", module: "jackson-datatype-jdk8"
+        exclude group: "javax.validation", module: "validation-api"
+    }
+    implementation "org.embulk:embulk-util-json:0.1.1"
+    implementation "org.embulk:embulk-util-timestamp:0.2.2"
+
+    implementation "com.fasterxml.jackson.core:jackson-annotations:2.6.7"
+    implementation "com.fasterxml.jackson.core:jackson-core:2.6.7"
+    implementation "com.fasterxml.jackson.core:jackson-databind:2.6.7"
+    implementation "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.6.7"
+
+    testImplementation "junit:junit:4.+"
+    testImplementation "org.embulk:embulk-api:0.10.43"
+    testImplementation "org.embulk:embulk-spi:0.11"
+    testImplementation "org.embulk:embulk-core:0.11.0"
+    testImplementation "org.embulk:embulk-junit4:0.11.0"
+    testImplementation "org.embulk:embulk-deps:0.11.0"
+}
+
+embulkPlugin {
+    mainClass = "org.embulk.filter.typecast.TypecastFilterPlugin"
+    category = "filter"
+    type = "typecast"
 }
 
 checkstyle {
     toolVersion = '6.7'
 }
 
-task classpath(type: Copy, dependsOn: ["jar"]) {
-    doFirst { file("classpath").deleteDir() }
-    from (configurations.runtime - configurations.provided + files(jar.archivePath))
-    into "classpath"
-}
-clean { delete "classpath" }
-
-task gem(type: JRubyExec, dependsOn: ["gemspec", "classpath"]) {
-    jrubyArgs "-S"
-    script "gem"
-    scriptArgs "build", "${project.name}.gemspec"
-    doLast { ant.move(file: "${project.name}-${project.version}.gem", todir: "pkg") }
-}
-
-task gemPush(type: JRubyExec, dependsOn: ["gem"]) {
-    jrubyArgs "-S"
-    script "gem"
-    scriptArgs "push", "pkg/${project.name}-${project.version}.gem"
-}
-
-task "package"(dependsOn: ["gemspec", "classpath"]) << {
-    println "> Build succeeded."
-    println "> You can run embulk with '-L ${file(".").absolutePath}' argument."
-}
-
-task gemspec {
-    ext.gemspecFile = file("${project.name}.gemspec")
-    inputs.file "build.gradle"
-    outputs.file gemspecFile
-    doLast { gemspecFile.write($/
-Gem::Specification.new do |spec|
-  spec.name          = "${project.name}"
-  spec.version       = "${project.version}"
-  spec.authors       = ["Naotoshi Seo"]
-  spec.summary       = %[A filter plugin for Embulk to cast column type]
-  spec.description   = %[A filter plugin for Embulk to cast column type.]
-  spec.email         = ["sonots@gmail.com"]
-  spec.licenses      = ["MIT"]
-  spec.homepage      = "https://github.com/sonots/embulk-filter-typecast"
-
-  spec.files         = `git ls-files`.split("\n") + Dir["classpath/*.jar"]
-  spec.test_files    = spec.files.grep(%r"^(test|spec)/")
-  spec.require_paths = ["lib"]
-
-  spec.add_development_dependency 'bundler', ['~> 1.0']
-  spec.add_development_dependency 'rake', ['>= 10.0']
-end
-/$)
-    }
-}
-clean { delete "${project.name}.gemspec" }
+//task gem(type: JRubyExec, dependsOn: ["gemspec", "classpath"]) {
+//    jrubyArgs "-S"
+//    script "gem"
+//    scriptArgs "build", "${project.name}.gemspec"
+//    doLast { ant.move(file: "${project.name}-${project.version}.gem", todir: "pkg") }
+//}
+//
+//task gemPush(type: JRubyExec, dependsOn: ["gem"]) {
+//    jrubyArgs "-S"
+//    script "gem"
+//    scriptArgs "push", "pkg/${project.name}-${project.version}.gem"
+//}
+//
+//task "package"(dependsOn: ["gemspec", "classpath"]) << {
+//    println "> Build succeeded."
+//    println "> You can run embulk with '-L ${file(".").absolutePath}' argument."
+//}
+//
+//task gemspec {
+//    ext.gemspecFile = file("${project.name}.gemspec")
+//    inputs.file "build.gradle"
+//    outputs.file gemspecFile
+//    doLast { gemspecFile.write($/
+//Gem::Specification.new do |spec|
+//  spec.name          = "${project.name}"
+//  spec.version       = "${project.version}"
+//  spec.authors       = ["Naotoshi Seo"]
+//  spec.summary       = %[A filter plugin for Embulk to cast column type]
+//  spec.description   = %[A filter plugin for Embulk to cast column type.]
+//  spec.email         = ["sonots@gmail.com"]
+//  spec.licenses      = ["MIT"]
+//  spec.homepage      = "https://github.com/sonots/embulk-filter-typecast"
+//
+//  spec.files         = `git ls-files`.split("\n") + Dir["classpath/*.jar"]
+//  spec.test_files    = spec.files.grep(%r"^(test|spec)/")
+//  spec.require_paths = ["lib"]
+//
+//  spec.add_development_dependency 'bundler', ['~> 1.0']
+//  spec.add_development_dependency 'rake', ['>= 10.0']
+//end
+///$)
+//    }
+//}
+//clean { delete "${project.name}.gemspec" }
