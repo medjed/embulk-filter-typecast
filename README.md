@@ -21,13 +21,10 @@ See [example.csv](./example/example.csv) and [example.yml](./example/example.yml
 
 ## JSONPath
 
-For `type: json` column, you can specify [JSONPath](http://goessner.net/articles/JsonPath/) for column's name as:
+For `type: json` column, you can specify [JSONPath](http://goessner.net/articles/JsonPath/):
 
-```
-name: $.payload.key1
-name: "$.payload.array[0]"
-name: "$.payload.array[*]"
-name: $['payload']['key1.key2']
+```yaml
+{name: json_column, type: json, json_path: $.payload.key1}
 ```
 
 Following operators of JSONPath are not supported:
@@ -37,17 +34,13 @@ Following operators of JSONPath are not supported:
 * Array slice such as `[1:2]`
 * Filter expression such as `[?(<expression>)]`
 
-## ToDo
-
-* Write test
-
 ## Development
 
 Run example:
 
 ```
-$ ./gradlew classpath
-$ embulk preview -I lib example/example.yml
+$ ./gradlew gem
+$ embulk preview -I build/gemContents/lib example/example.yml
 ```
 
 Run test:
@@ -65,5 +58,6 @@ $ ./gradlew check
 Release gem:
 
 ```
-$ ./gradlew gemPush
+$ ./gradlew gem
+$ gem push build/gems/embulk-filter-typecast-<version>.gem
 ```
