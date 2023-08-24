@@ -17,7 +17,7 @@ A filter plugin for Embulk to cast column type.
 
 ## Example
 
-See [example.csv](./example/example.csv) and [example.yml](./example/example.yml).
+See [example.csv](./example/example.csv) and [example.yml](./example/from_string.yml).
 
 ## JSONPath
 
