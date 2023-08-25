@@ -1,9 +1,13 @@
 package org.embulk.filter.typecast;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.JsonPath;
+import com.jayway.jsonpath.Option;
 import com.jayway.jsonpath.PathNotFoundException;
+import com.jayway.jsonpath.spi.json.JacksonJsonNodeJsonProvider;
 import org.embulk.filter.typecast.TypecastFilterPlugin.PluginTask;
 import org.embulk.filter.typecast.TypecastFilterPlugin.TypecastColumnConfig;
 import org.embulk.filter.typecast.cast.BooleanCast;
@@ -30,18 +34,25 @@ import org.embulk.util.json.JsonParser;
 import org.embulk.util.timestamp.TimestampFormatter;
 import org.msgpack.value.Value;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
 
 class ColumnCaster
 {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final Configuration JSON_PATH_CONFIG = Configuration.builder().jsonProvider(new JacksonJsonNodeJsonProvider()).build();
+    private static final Configuration AS_PATH_LIST_CONFIG = Configuration.builder().options(Option.AS_PATH_LIST).build();
 
     private final PluginTask task;
     private final ConfigMapper configMapper;
     private final Schema inputSchema;
     private final PageBuilder pageBuilder;
     private final HashMap<String, TimestampFormatter> timestampFormatterMap = new HashMap<>();
-    private final HashMap<String, JsonPath> jsonPathMap = new HashMap<>();
+    private final HashMap<String, List<JsonPath>> jsonPathMap = new HashMap<>();
+    private final HashMap<JsonPath, Type> jsonPathToTypeMap = new HashMap<>();
 
     ColumnCaster(PluginTask task, ConfigMapper configMapper, Schema inputSchema,
                  PageBuilder pageBuilder)
@@ -59,9 +70,19 @@ class ColumnCaster
         // columnName => TimestampFormatter
         for (ColumnConfig columnConfig : task.getColumns().getColumns()) {
             TypecastColumnConfig typecastColumnConfig = configMapper.map(columnConfig.getOption(), TypecastColumnConfig.class);
-            typecastColumnConfig.getJsonPath().ifPresent(jsonPath -> jsonPathMap.put(columnConfig.getName(), JsonPath.compile(jsonPath)));
-            Column inputColumn = inputSchema.lookupColumn(columnConfig.getName());
-            if (inputColumn.getType() instanceof TimestampType && columnConfig.getType() instanceof StringType) {
+            Column inputColumn;
+            if (JsonPathUtil.isProbablyJsonPath(columnConfig.getName())) {
+                String columnName = JsonPathUtil.getColumnName(columnConfig.getName());
+                List<JsonPath> jsonPaths = jsonPathMap.computeIfAbsent(columnName, k -> new ArrayList<>());
+                JsonPath jsonPath = JsonPath.compile(columnConfig.getName());
+                jsonPaths.add(jsonPath);
+                jsonPathToTypeMap.put(jsonPath, columnConfig.getType());
+                inputColumn = inputSchema.lookupColumn(columnName);
+            } else {
+                inputColumn = inputSchema.lookupColumn(columnConfig.getName());
+            }
+            if ((inputColumn.getType() instanceof TimestampType && columnConfig.getType() instanceof StringType) ||
+                    (inputColumn.getType() instanceof StringType && columnConfig.getType() instanceof TimestampType)) {
                 TimestampFormatter formatter = createTimestampFormatter(task, typecastColumnConfig);
                 this.timestampFormatterMap.put(columnConfig.getName(), formatter);
             }
@@ -143,20 +164,14 @@ class ColumnCaster
             TimestampFormatter timestampParser = timestampFormatterMap.get(outputColumn.getName());
             pageBuilder.setTimestamp(outputColumn, StringCast.asTimestamp(value, timestampParser));
         } else if (outputType instanceof JsonType) {
-            Value jsonValue = StringCast.asJson(value);
-            JsonPath jsonPath = jsonPathMap.get(outputColumn.getName());
-            if (jsonPath != null) {
-                try {
-                    Object rawValue = jsonPath.read(value);
-                    String partialJson = OBJECT_MAPPER.writeValueAsString(rawValue);
-                    JsonParser jsonParser = new JsonParser();
-                    pageBuilder.setJson(outputColumn, jsonParser.parse(partialJson));
-                } catch (JsonProcessingException | PathNotFoundException e) {
-                    throw new DataException(e);
-                }
+            List<JsonPath> jsonPaths = jsonPathMap.get(outputColumn.getName());
+            Value castedValue;
+            if (jsonPaths != null && !jsonPaths.isEmpty()) {
+                castedValue = getCastedJsonValue(outputColumn, jsonPaths, value);
             } else {
-                pageBuilder.setJson(outputColumn, jsonValue);
+                castedValue = StringCast.asJson(value);
             }
+            pageBuilder.setJson(outputColumn, castedValue);
         } else {
             assert false;
         }
@@ -185,21 +200,14 @@ class ColumnCaster
 
     public void setFromJson(Column outputColumn, Value value)
     {
-        JsonPath jsonPath = jsonPathMap.get(outputColumn.getName());
+        List<JsonPath> jsonPaths = jsonPathMap.get(outputColumn.getName());
         Value castedValue;
-        if (jsonPath != null) {
-            String partialJson;
-            try {
-                Object rawValue = jsonPath.read(value.toJson());
-                partialJson = OBJECT_MAPPER.writeValueAsString(rawValue);
-            } catch (JsonProcessingException | PathNotFoundException e) {
-                throw new DataException(e);
-            }
-            JsonParser jsonParser = new JsonParser();
-            castedValue = jsonParser.parse(partialJson);
+        if (jsonPaths != null && !jsonPaths.isEmpty()) {
+            castedValue = getCastedJsonValue(outputColumn, jsonPaths, value.toJson());
         } else {
             castedValue = value;
         }
+
         Type outputType = outputColumn.getType();
         if (outputType instanceof BooleanType) {
             pageBuilder.setBoolean(outputColumn, JsonCast.asBoolean(castedValue));
@@ -215,6 +223,43 @@ class ColumnCaster
             pageBuilder.setJson(outputColumn, JsonCast.asJson(castedValue));
         } else {
             assert false;
+        }
+    }
+
+    private Value getCastedJsonValue(Column outputColumn, List<JsonPath> jsonPaths, String json)
+    {
+        try {
+            JsonNode jsonNode = OBJECT_MAPPER.readTree(json);
+            ObjectNode wrapped = OBJECT_MAPPER.createObjectNode();
+            wrapped.set(outputColumn.getName(), jsonNode);
+
+            for (JsonPath jsonPath : jsonPaths) {
+                try {
+                    JsonNode extracted = jsonPath.read(wrapped.toString(), JSON_PATH_CONFIG);
+                    if (extracted.isArray()) {
+                        List<String> matchPaths = jsonPath.read(wrapped.toString(), AS_PATH_LIST_CONFIG);
+                        Iterator<JsonNode> it = extracted.iterator();
+                        int i = 0;
+                        while (it.hasNext()) {
+                            JsonNode node = it.next();
+                            Object casted = new JsonNodeCaster().castTo(node, jsonPathToTypeMap.get(jsonPath), null);
+                            JsonPath.parse(wrapped, JSON_PATH_CONFIG).set(matchPaths.get(i), casted);
+                            i++;
+                        }
+                    } else {
+                        Object casted = new JsonNodeCaster().castTo(extracted, jsonPathToTypeMap.get(jsonPath), null);
+                        jsonPath.set(wrapped, casted, JSON_PATH_CONFIG);
+                    }
+                } catch (PathNotFoundException e) {
+                    if (task.getStopOnInvalidRecord()) {
+                        throw new DataException(e);
+                    }
+                }
+            }
+            JsonParser jsonParser = new JsonParser();
+            return jsonParser.parse(wrapped.get(outputColumn.getName()).toString());
+        } catch (IOException e) {
+            throw new DataException(e);
         }
     }
 

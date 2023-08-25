@@ -34,10 +34,6 @@ public class TypecastFilterPlugin implements FilterPlugin
     // NOTE: This is not spi.ColumnConfig
     public interface TypecastColumnConfig extends Task
     {
-        @Config("json_path")
-        @ConfigDefault("null")
-        Optional<String> getJsonPath();
-
         @Config("timezone")
         @ConfigDefault("null")
         Optional<String> getTimeZone();
@@ -92,6 +88,10 @@ public class TypecastFilterPlugin implements FilterPlugin
         // throw if column does not exist
         for (ColumnConfig columnConfig : schemaConfig.getColumns()) {
             String name = columnConfig.getName();
+            if (JsonPathUtil.isProbablyJsonPath(columnConfig.getName())) {
+                JsonPathUtil.assertJsonPathFormat(columnConfig.getName());
+                name = JsonPathUtil.getColumnName(columnConfig.getName());
+            }
             inputSchema.lookupColumn(name);
         }
         // throw if timestamp is specified in json path
@@ -110,12 +110,11 @@ public class TypecastFilterPlugin implements FilterPlugin
         int i = 0;
         for (Column inputColumn : inputSchema.getColumns()) {
             String name = inputColumn.getName();
-            Optional<ColumnConfig> typecastedColumn = columnConfigs.stream().filter(columnConfig -> columnConfig.getName().equals(name)).findFirst();
-            Type type;
+            final String inputColumnName = name;
+            Type type = inputColumn.getType();
+            Optional<ColumnConfig> typecastedColumn = columnConfigs.stream().filter(columnConfig -> columnConfig.getName().equals(inputColumnName)).findFirst();
             if (typecastedColumn.isPresent()) {
                 type = typecastedColumn.get().getType();
-            } else {
-                type = inputColumn.getType();
             }
             Column outputColumn = new Column(i++, name, type);
             outputColumns.add(outputColumn);

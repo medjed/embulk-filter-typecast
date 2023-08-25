@@ -2,6 +2,7 @@ package org.embulk.filter.typecast;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.dataformat.csv.CsvMapper;
+import com.jayway.jsonpath.matchers.JsonPathMatchers;
 import org.embulk.config.ConfigSource;
 import org.embulk.exec.PartialExecutionException;
 import org.embulk.formatter.csv.CsvFormatterPlugin;
@@ -16,19 +17,29 @@ import org.embulk.spi.FormatterPlugin;
 import org.embulk.spi.ParserPlugin;
 import org.embulk.test.EmbulkTestRuntime;
 import org.embulk.test.TestingEmbulk;
+import org.embulk.util.json.JsonParser;
+import org.hamcrest.Matcher;
+import org.hamcrest.MatcherAssert;
+import org.hamcrest.Matchers;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.msgpack.value.Value;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.jayway.jsonpath.matchers.JsonPathMatchers.hasJsonPath;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 
@@ -119,7 +130,7 @@ public class TypecastFilterPluginTest
         assertEquals("12345", row.get(1));
         assertEquals("98765.4321", row.get(2));
         assertEquals("2023-08-24 11:43:01.000000 +0000", row.get(3));
-        assertEquals("{\"key1\":9999,\"key2\":\"foo\"}", row.get(4));
+        assertEquals("{\"key1\":9999,\"key2\":\"true\"}", row.get(4));
     }
 
     @Test
@@ -183,7 +194,7 @@ public class TypecastFilterPluginTest
         embulk.inputBuilder().in(input).outputPath(outputFile).filters(Collections.singletonList(filter)).run();
         byte[] result = Files.readAllBytes(outputFile);
         List<String> row = CSV_MAPPER.readValue(result, new TypeReference<List<String>>() {});
-        assertEquals("{\"key1\":9999,\"key2\":\"foo\"}", row.get(4));
+        assertEquals("{\"key1\":9999,\"key2\":\"true\"}", row.get(4));
     }
 
     @Test
@@ -196,14 +207,15 @@ public class TypecastFilterPluginTest
         ConfigSource filter = newConfig();
         filter.set("type", "typecast");
 
-        Map<String, String> jsonColumn = inputColumn("json_value", "string");
-        jsonColumn.put("json_path", "$.key1");
-        filter.set("columns", Collections.singletonList(jsonColumn));
+        Map<String, String> jsonColumn1 = inputColumn("$.json_value.key1", "string");
+        Map<String, String> jsonColumn2 = inputColumn("$.json_value.key2", "boolean");
+        filter.set("columns", Arrays.asList(jsonColumn1, jsonColumn2));
 
         embulk.inputBuilder().in(input).outputPath(outputFile).filters(Collections.singletonList(filter)).run();
         byte[] result = Files.readAllBytes(outputFile);
         List<String> row = CSV_MAPPER.readValue(result, new TypeReference<List<String>>() {});
-        assertEquals("9999", row.get(4));
+        assertThat(row.get(4), hasJsonPath("$.key1", equalTo("9999")));
+        assertThat(row.get(4), hasJsonPath("$.key2", equalTo(true)));
     }
 
     @Test
@@ -216,14 +228,14 @@ public class TypecastFilterPluginTest
         ConfigSource filter = newConfig();
         filter.set("type", "typecast");
 
-        Map<String, String> jsonColumn = inputColumn("json_value", "string");
-        jsonColumn.put("json_path", "$.no_key");
+        Map<String, String> jsonColumn = inputColumn("$.json_value.no_key", "string");
         filter.set("columns", Collections.singletonList(jsonColumn));
 
         embulk.inputBuilder().in(input).outputPath(outputFile).filters(Collections.singletonList(filter)).run();
         byte[] result = Files.readAllBytes(outputFile);
         List<String> row = CSV_MAPPER.readValue(result, new TypeReference<List<String>>() {});
-        assertEquals("", row.get(4));
+        assertThat(row.get(4), hasJsonPath("$.key1", equalTo(9999)));
+        assertThat(row.get(4), hasJsonPath("$.key2", equalTo("true")));
     }
 
     @Test
@@ -236,8 +248,7 @@ public class TypecastFilterPluginTest
         ConfigSource filter = newConfig();
         filter.set("type", "typecast");
 
-        Map<String, String> jsonColumn = inputColumn("json_value", "string");
-        jsonColumn.put("json_path", "$.no_key");
+        Map<String, String> jsonColumn = inputColumn("$.json_value.no_key", "string");
         filter.set("columns", Collections.singletonList(jsonColumn));
         filter.set("stop_on_invalid_record", true);
 
@@ -256,33 +267,14 @@ public class TypecastFilterPluginTest
         ConfigSource filter = newConfig();
         filter.set("type", "typecast");
 
-        Map<String, String> jsonColumn = inputColumn("complex_json", "string");
-        jsonColumn.put("json_path", "$.a[0].b");
-        filter.set("columns", Collections.singletonList(jsonColumn));
+        Map<String, String> jsonColumn1 = inputColumn("$.complex_json.a[0].b", "string");
+        Map<String, String> jsonColumn2 = inputColumn("$.complex_json.a[0].c", "double");
+        filter.set("columns", Arrays.asList(jsonColumn1, jsonColumn2));
 
         embulk.inputBuilder().in(input).outputPath(outputFile).filters(Collections.singletonList(filter)).run();
         byte[] result = Files.readAllBytes(outputFile);
         List<String> row = CSV_MAPPER.readValue(result, new TypeReference<List<String>>() {});
-        assertEquals("123", row.get(0));
-    }
-
-    @Test
-    public void testTypeCastComplexJsonExtractNestedJson() throws IOException
-    {
-        ConfigSource input = getInputConfigSource("data_complex.csv", Collections.singletonList(inputColumn("complex_json", "json")));
-        Path tempDir = Files.createTempDirectory("embulk-filter-typecast-testing");
-        Path outputFile = tempDir.resolve("output.csv");
-
-        ConfigSource filter = newConfig();
-        filter.set("type", "typecast");
-
-        Map<String, String> jsonColumn = inputColumn("complex_json", "json");
-        jsonColumn.put("json_path", "$.d");
-        filter.set("columns", Collections.singletonList(jsonColumn));
-
-        embulk.inputBuilder().in(input).outputPath(outputFile).filters(Collections.singletonList(filter)).run();
-        byte[] result = Files.readAllBytes(outputFile);
-        List<String> row = CSV_MAPPER.readValue(result, new TypeReference<List<String>>() {});
-        assertEquals("{\"e\":\"e-value\",\"f\":\"f-value\"}", row.get(0));
+        assertThat(row.get(0), hasJsonPath("$.a[0].b", equalTo("123")));
+        assertThat(row.get(0), hasJsonPath("$.a[0].c", equalTo(456.0)));
     }
 }

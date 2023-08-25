@@ -21,11 +21,15 @@ See [example.csv](./example/example.csv) and [example.yml](./example/example.yml
 
 ## JSONPath
 
-For `type: json` column, you can specify [JSONPath](http://goessner.net/articles/JsonPath/):
+For `type: json` column, you can specify [JSONPath](http://goessner.net/articles/JsonPath/) for column's name as:
 
-```yaml
-{name: json_column, type: json, json_path: $.payload.key1}
 ```
+name: $.payload.key1
+name: "$.payload.array[0]"
+name: "$.payload.array[*]"
+name: $['payload']['key1.key2']
+```
+
 
 Following operators of JSONPath are not supported:
 
