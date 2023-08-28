@@ -30,6 +30,7 @@ name: "$.payload.array[*]"
 name: $['payload']['key1.key2']
 ```
 
+
 Following operators of JSONPath are not supported:
 
 * Multiple properties such as `['name','name']`
@@ -37,17 +38,13 @@ Following operators of JSONPath are not supported:
 * Array slice such as `[1:2]`
 * Filter expression such as `[?(<expression>)]`
 
-## ToDo
-
-* Write test
-
 ## Development
 
 Run example:
 
 ```
-$ ./gradlew classpath
-$ embulk preview -I lib example/example.yml
+$ ./gradlew gem
+$ embulk preview -I build/gemContents/lib example/example.yml
 ```
 
 Run test:
@@ -65,5 +62,6 @@ $ ./gradlew check
 Release gem:
 
 ```
-$ ./gradlew gemPush
+$ ./gradlew gem
+$ gem push build/gems/embulk-filter-typecast-<version>.gem
 ```

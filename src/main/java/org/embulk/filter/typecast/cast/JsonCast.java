@@ -13,32 +13,32 @@ public class JsonCast
         return String.format("cannot cast Json to %s: \"%s\"", as, value);
     }
 
-    public static boolean asBoolean(Value value) throws DataException
+    public static boolean asBoolean(Value value)
     {
         throw new DataException(buildErrorMessage("boolean", value));
     }
 
-    public static long asLong(Value value) throws DataException
+    public static long asLong(Value value)
     {
         throw new DataException(buildErrorMessage("long", value));
     }
 
-    public static double asDouble(Value value) throws DataException
+    public static double asDouble(Value value)
     {
         throw new DataException(buildErrorMessage("double", value));
     }
 
-    public static String asString(Value value) throws DataException
+    public static String asString(Value value)
     {
         return value.toString();
     }
 
-    public static Value asJson(Value value) throws DataException
+    public static Value asJson(Value value)
     {
         return value;
     }
 
-    public static Timestamp asTimestamp(Value value) throws DataException
+    public static Timestamp asTimestamp(Value value)
     {
         throw new DataException(buildErrorMessage("timestamp", value));
     }

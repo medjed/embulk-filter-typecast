@@ -1,21 +1,22 @@
 package org.embulk.filter.typecast;
 
 import org.embulk.filter.typecast.TypecastFilterPlugin.PluginTask;
-
 import org.embulk.spi.Column;
 import org.embulk.spi.ColumnVisitor;
 import org.embulk.spi.DataException;
-import org.embulk.spi.Exec;
 import org.embulk.spi.PageBuilder;
 import org.embulk.spi.PageReader;
 import org.embulk.spi.Schema;
+import org.embulk.util.config.ConfigMapper;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 
 class ColumnVisitorImpl implements ColumnVisitor
 {
-    private static final Logger logger = Exec.getLogger(TypecastFilterPlugin.class);
+    private static final Logger logger = LoggerFactory.getLogger(ColumnVisitorImpl.class);
+
     private final PluginTask task;
     private final Schema inputSchema;
     private final Schema outputSchema;
@@ -24,8 +25,8 @@ class ColumnVisitorImpl implements ColumnVisitor
     private final HashMap<String, Column> outputColumnMap = new HashMap<>();
     private final ColumnCaster columnCaster;
 
-    ColumnVisitorImpl(PluginTask task, Schema inputSchema, Schema outputSchema,
-            PageReader pageReader, PageBuilder pageBuilder)
+    ColumnVisitorImpl(PluginTask task, ConfigMapper configMapper, Schema inputSchema, Schema outputSchema,
+                      PageReader pageReader, PageBuilder pageBuilder)
     {
         this.task         = task;
         this.inputSchema  = inputSchema;
@@ -33,14 +34,17 @@ class ColumnVisitorImpl implements ColumnVisitor
         this.pageReader   = pageReader;
         this.pageBuilder  = pageBuilder;
 
-        this.columnCaster = new ColumnCaster(task, inputSchema, outputSchema, pageReader, pageBuilder);
+        this.columnCaster = new ColumnCaster(task, configMapper, inputSchema, pageBuilder);
 
         buildOutputColumnMap();
     }
 
     private void buildOutputColumnMap()
     {
-        // columnName => outputColumn
+        for (Column column : inputSchema.getColumns()) {
+            this.outputColumnMap.put(column.getName(), column);
+        }
+        // override typecasted column
         for (Column column : outputSchema.getColumns()) {
             this.outputColumnMap.put(column.getName(), column);
         }
@@ -77,12 +81,7 @@ class ColumnVisitorImpl implements ColumnVisitor
     public void booleanColumn(final Column inputColumn)
     {
         final Column outputColumn = outputColumnMap.get(inputColumn.getName());
-        PageBuildable op = new PageBuildable() {
-            public void run() throws DataException
-            {
-                columnCaster.setFromBoolean(outputColumn, pageReader.getBoolean(inputColumn));
-            }
-        };
+        PageBuildable op = () -> columnCaster.setFromBoolean(outputColumn, pageReader.getBoolean(inputColumn));
         withStopOnInvalidRecord(op, inputColumn, outputColumn);
     }
 
@@ -90,12 +89,7 @@ class ColumnVisitorImpl implements ColumnVisitor
     public void longColumn(final Column inputColumn)
     {
         final Column outputColumn = outputColumnMap.get(inputColumn.getName());
-        PageBuildable op = new PageBuildable() {
-            public void run() throws DataException
-            {
-                columnCaster.setFromLong(outputColumn, pageReader.getLong(inputColumn));
-            }
-        };
+        PageBuildable op = () -> columnCaster.setFromLong(outputColumn, pageReader.getLong(inputColumn));
         withStopOnInvalidRecord(op, inputColumn, outputColumn);
     }
 
@@ -103,12 +97,7 @@ class ColumnVisitorImpl implements ColumnVisitor
     public void doubleColumn(final Column inputColumn)
     {
         final Column outputColumn = outputColumnMap.get(inputColumn.getName());
-        PageBuildable op = new PageBuildable() {
-            public void run() throws DataException
-            {
-                columnCaster.setFromDouble(outputColumn, pageReader.getDouble(inputColumn));
-            }
-        };
+        PageBuildable op = () -> columnCaster.setFromDouble(outputColumn, pageReader.getDouble(inputColumn));
         withStopOnInvalidRecord(op, inputColumn, outputColumn);
     }
 
@@ -116,12 +105,7 @@ class ColumnVisitorImpl implements ColumnVisitor
     public void stringColumn(final Column inputColumn)
     {
         final Column outputColumn = outputColumnMap.get(inputColumn.getName());
-        PageBuildable op = new PageBuildable() {
-            public void run() throws DataException
-            {
-                columnCaster.setFromString(outputColumn, pageReader.getString(inputColumn));
-            }
-        };
+        PageBuildable op = () -> columnCaster.setFromString(outputColumn, pageReader.getString(inputColumn));
         withStopOnInvalidRecord(op, inputColumn, outputColumn);
     }
 
@@ -129,12 +113,7 @@ class ColumnVisitorImpl implements ColumnVisitor
     public void timestampColumn(final Column inputColumn)
     {
         final Column outputColumn = outputColumnMap.get(inputColumn.getName());
-        PageBuildable op = new PageBuildable() {
-            public void run() throws DataException
-            {
-                columnCaster.setFromTimestamp(outputColumn, pageReader.getTimestamp(inputColumn));
-            }
-        };
+        PageBuildable op = () -> columnCaster.setFromTimestamp(outputColumn, pageReader.getTimestamp(inputColumn));
         withStopOnInvalidRecord(op, inputColumn, outputColumn);
     }
 
@@ -142,12 +121,7 @@ class ColumnVisitorImpl implements ColumnVisitor
     public void jsonColumn(final Column inputColumn)
     {
         final Column outputColumn = outputColumnMap.get(inputColumn.getName());
-        PageBuildable op = new PageBuildable() {
-            public void run() throws DataException
-            {
-                columnCaster.setFromJson(outputColumn, pageReader.getJson(inputColumn));
-            }
-        };
+        PageBuildable op = () -> columnCaster.setFromJson(outputColumn, pageReader.getJson(inputColumn));
         withStopOnInvalidRecord(op, inputColumn, outputColumn);
     }
 }

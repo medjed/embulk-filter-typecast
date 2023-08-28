@@ -1,0 +1,2 @@
+"string_value","long_value","double_value","ts","json_value"
+"hoge",12345,98765.4321,"2023-08-24T11:43:01Z","{\"key1\": 9999, \"key2\": \"true\"}"

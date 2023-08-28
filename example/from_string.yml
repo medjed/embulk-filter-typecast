@@ -36,6 +36,7 @@ filters:
       - {name: "$.json1.string", type: long}
       - {name: "$.json2.long",   type: long}
       - {name: "$.array_str[0]", type: long}
-      - {name: "$.array_int[*]", type: long}
+      - {name: "$.array_int[0:2]", type: double}
+      - {name: "$.array_int[?(@ > 5000)]", type: double}
 out:
-  type: "null"
+  type: "stdout"

@@ -1,13 +1,7 @@
 package org.embulk.filter.typecast;
 
-import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableList;
-import io.github.medjed.jsonpathcompiler.expressions.path.PathCompiler;
-import org.embulk.config.Config;
-import org.embulk.config.ConfigDefault;
 import org.embulk.config.ConfigException;
 import org.embulk.config.ConfigSource;
-import org.embulk.config.Task;
 import org.embulk.config.TaskSource;
 
 import org.embulk.spi.Column;
@@ -20,54 +14,52 @@ import org.embulk.spi.PageReader;
 import org.embulk.spi.Schema;
 import org.embulk.spi.type.TimestampType;
 import org.embulk.spi.type.Type;
-import org.joda.time.DateTimeZone;
-import org.slf4j.Logger;
+import org.embulk.util.config.Config;
+import org.embulk.util.config.ConfigDefault;
+import org.embulk.util.config.ConfigMapper;
+import org.embulk.util.config.ConfigMapperFactory;
+import org.embulk.util.config.Task;
+import org.embulk.util.config.TaskMapper;
+import org.embulk.util.config.units.ColumnConfig;
+import org.embulk.util.config.units.SchemaConfig;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public class TypecastFilterPlugin implements FilterPlugin
 {
-    private static final Logger logger = Exec.getLogger(TypecastFilterPlugin.class);
-
-    public TypecastFilterPlugin()
-    {
-    }
+    private final ConfigMapperFactory configMapperFactory = ConfigMapperFactory.withDefault();
 
     // NOTE: This is not spi.ColumnConfig
-    public interface ColumnConfig extends Task
+    public interface TypecastColumnConfig extends Task
     {
-        @Config("name")
-        String getName();
-
-        @Config("type")
-        Type getType();
-
         @Config("timezone")
         @ConfigDefault("null")
-        public Optional<DateTimeZone> getTimeZone();
+        Optional<String> getTimeZone();
 
         @Config("format")
         @ConfigDefault("null")
-        public Optional<String> getFormat();
+        Optional<String> getFormat();
 
         @Config("date")
         @ConfigDefault("null")
-        public Optional<String> getDate();
+        Optional<String> getDate();
     }
 
     public interface PluginTask extends Task
     {
         @Config("columns")
         @ConfigDefault("[]")
-        List<ColumnConfig> getColumns();
+        SchemaConfig getColumns();
 
         @Config("stop_on_invalid_record")
         @ConfigDefault("false")
-        Boolean getStopOnInvalidRecord();
+        boolean getStopOnInvalidRecord();
 
         @Config("default_timezone")
         @ConfigDefault("\"UTC\"")
-        public DateTimeZone getDefaultTimeZone();
+        public String getDefaultTimeZone();
 
         @Config("default_timestamp_format")
         @ConfigDefault("\"%Y-%m-%d %H:%M:%S.%N %z\"")
@@ -80,78 +72,69 @@ public class TypecastFilterPlugin implements FilterPlugin
 
     @Override
     public void transaction(final ConfigSource config, final Schema inputSchema,
-            final FilterPlugin.Control control)
+                            final FilterPlugin.Control control)
     {
-        PluginTask task = config.loadConfig(PluginTask.class);
+        ConfigMapper configMapper = configMapperFactory.createConfigMapper();
+        PluginTask task = configMapper.map(config, PluginTask.class);
+        SchemaConfig schemaConfig = task.getColumns();
 
-        configure(task, inputSchema);
-        Schema outputSchema = buildOuputSchema(task, inputSchema);
-        control.run(task.dump(), outputSchema);
+        configure(inputSchema, schemaConfig);
+        Schema outputSchema = buildOutputSchema(inputSchema, schemaConfig);
+        control.run(task.toTaskSource(), outputSchema);
     }
 
-    private void configure(final PluginTask task, final Schema inputSchema)
+    private void configure(final Schema inputSchema, SchemaConfig schemaConfig)
     {
-        List<ColumnConfig> columnConfigs = task.getColumns();
         // throw if column does not exist
-        for (ColumnConfig columnConfig : columnConfigs) {
+        for (ColumnConfig columnConfig : schemaConfig.getColumns()) {
             String name = columnConfig.getName();
-            if (PathCompiler.isProbablyJsonPath(name)) {
-                // check only top level column name
-                String columnName = JsonPathUtil.getColumnName(name);
-                inputSchema.lookupColumn(columnName);
+            if (JsonPathUtil.isProbablyJsonPath(columnConfig.getName())) {
+                JsonPathUtil.assertJsonPathFormat(columnConfig.getName());
+                name = JsonPathUtil.getColumnName(columnConfig.getName());
             }
-            else {
-                inputSchema.lookupColumn(name);
-            }
+            inputSchema.lookupColumn(name);
         }
         // throw if timestamp is specified in json path
-        for (ColumnConfig columnConfig : columnConfigs) {
+        for (ColumnConfig columnConfig : schemaConfig.getColumns()) {
             String name = columnConfig.getName();
-            if (PathCompiler.isProbablyJsonPath(name) && columnConfig.getType() instanceof TimestampType) {
+            if (JsonPathUtil.isProbablyJsonPath(name) && columnConfig.getType() instanceof TimestampType) {
                 throw new ConfigException(String.format("embulk-filter-typecast: timestamp type is not supported in json column: \"%s\"", name));
             }
         }
     }
 
-    private Schema buildOuputSchema(final PluginTask task, final Schema inputSchema)
+    private Schema buildOutputSchema(Schema inputSchema, SchemaConfig schemaConfig)
     {
-        List<ColumnConfig> columnConfigs = task.getColumns();
-        ImmutableList.Builder<Column> builder = ImmutableList.builder();
+        List<Column> outputColumns = new ArrayList<>();
+        List<ColumnConfig> columnConfigs = schemaConfig.getColumns();
         int i = 0;
         for (Column inputColumn : inputSchema.getColumns()) {
             String name = inputColumn.getName();
-            Type   type = inputColumn.getType();
-            ColumnConfig columnConfig = getColumnConfig(name, columnConfigs);
-            if (columnConfig != null) {
-                type = columnConfig.getType();
+            final String inputColumnName = name;
+            Type type = inputColumn.getType();
+            Optional<ColumnConfig> typecastedColumn = columnConfigs.stream().filter(columnConfig -> columnConfig.getName().equals(inputColumnName)).findFirst();
+            if (typecastedColumn.isPresent()) {
+                type = typecastedColumn.get().getType();
             }
             Column outputColumn = new Column(i++, name, type);
-            builder.add(outputColumn);
+            outputColumns.add(outputColumn);
         }
-        return new Schema(builder.build());
-    }
-
-    private ColumnConfig getColumnConfig(String name, List<ColumnConfig> columnConfigs)
-    {
-        // hash should be faster, though
-        for (ColumnConfig columnConfig : columnConfigs) {
-            if (columnConfig.getName().equals(name)) {
-                return columnConfig;
-            }
-        }
-        return null;
+        return new Schema(outputColumns);
     }
 
     @Override
     public PageOutput open(final TaskSource taskSource, final Schema inputSchema,
                            final Schema outputSchema, final PageOutput output)
     {
-        final PluginTask task = taskSource.loadTask(PluginTask.class);
+        ConfigMapper configMapper = configMapperFactory.createConfigMapper();
+        TaskMapper taskMapper = configMapperFactory.createTaskMapper();
+        final PluginTask task = taskMapper.map(taskSource, PluginTask.class);
 
-        return new PageOutput() {
-            private PageReader pageReader = new PageReader(inputSchema);
-            private PageBuilder pageBuilder = new PageBuilder(Exec.getBufferAllocator(), outputSchema, output);
-            private ColumnVisitorImpl visitor = new ColumnVisitorImpl(task, inputSchema, outputSchema, pageReader, pageBuilder);
+        return new PageOutput()
+        {
+            private final PageReader pageReader = new PageReader(inputSchema);
+            private final PageBuilder pageBuilder = new PageBuilder(Exec.getBufferAllocator(), outputSchema, output);
+            private final ColumnVisitorImpl visitor = new ColumnVisitorImpl(task, configMapper, inputSchema, outputSchema, pageReader, pageBuilder);
 
             @Override
             public void finish()

@@ -1,15 +1,17 @@
 package org.embulk.filter.typecast.cast;
 
-import org.embulk.EmbulkTestRuntime;
 import org.embulk.spi.DataException;
 import org.embulk.spi.time.Timestamp;
 import org.embulk.spi.time.TimestampParser;
-import org.joda.time.DateTimeZone;
+import org.embulk.test.EmbulkTestRuntime;
+import org.embulk.util.timestamp.TimestampFormatter;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.msgpack.value.Value;
 import org.msgpack.value.ValueFactory;
+
+import java.time.ZoneId;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -37,8 +39,7 @@ public class TestStringCast
         try {
             StringCast.asBoolean("foo");
             fail();
-        }
-        catch (Throwable t) {
+        } catch (Throwable t) {
             assertTrue(t instanceof DataException);
         }
     }
@@ -50,15 +51,13 @@ public class TestStringCast
         try {
             StringCast.asLong("1.5");
             fail();
-        }
-        catch (Throwable t) {
+        } catch (Throwable t) {
             assertTrue(t instanceof DataException);
         }
         try {
             StringCast.asLong("foo");
             fail();
-        }
-        catch (Throwable t) {
+        } catch (Throwable t) {
             assertTrue(t instanceof DataException);
         }
     }
@@ -71,8 +70,7 @@ public class TestStringCast
         try {
             StringCast.asDouble("foo");
             fail();
-        }
-        catch (Throwable t) {
+        } catch (Throwable t) {
             assertTrue(t instanceof DataException);
         }
     }
@@ -99,14 +97,16 @@ public class TestStringCast
     public void asTimestamp()
     {
         Timestamp expected = Timestamp.ofEpochSecond(1463084053, 123456000);
-        TimestampParser parser = new TimestampParser("%Y-%m-%d %H:%M:%S.%N", DateTimeZone.UTC);
-        assertEquals(expected, StringCast.asTimestamp("2016-05-12 20:14:13.123456", parser));
+        TimestampFormatter formatter = TimestampFormatter
+                .builder("%Y-%m-%d %H:%M:%S.%N", true)
+                .setDefaultZoneId(ZoneId.of("UTC"))
+                .build();
+        assertEquals(expected, StringCast.asTimestamp("2016-05-12 20:14:13.123456", formatter));
 
         try {
-            StringCast.asTimestamp("foo", parser);
+            StringCast.asTimestamp("foo", formatter);
             fail();
-        }
-        catch (Throwable t) {
+        } catch (Throwable t) {
             assertTrue(t instanceof DataException);
         }
     }

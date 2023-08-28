@@ -2,7 +2,7 @@ package org.embulk.filter.typecast.cast;
 
 import org.embulk.spi.DataException;
 import org.embulk.spi.time.Timestamp;
-import org.embulk.spi.time.TimestampFormatter;
+import org.embulk.util.timestamp.TimestampFormatter;
 import org.msgpack.value.Value;
 
 public class TimestampCast
@@ -14,17 +14,17 @@ public class TimestampCast
         return String.format("cannot cast Timestamp to %s: \"%s\"", as, value);
     }
 
-    public static boolean asBoolean(Timestamp value) throws DataException
+    public static boolean asBoolean(Timestamp value)
     {
         throw new DataException(buildErrorMessage("boolean", value));
     }
 
-    public static long asLong(Timestamp value) throws DataException
+    public static long asLong(Timestamp value)
     {
         return value.getEpochSecond();
     }
 
-    public static double asDouble(Timestamp value) throws DataException
+    public static double asDouble(Timestamp value)
     {
         long epochSecond = value.getEpochSecond();
         long nano = value.getNano();
@@ -33,15 +33,15 @@ public class TimestampCast
 
     public static String asString(Timestamp value, TimestampFormatter formatter) throws DataException
     {
-        return formatter.format(value);
+        return formatter.format(value.getInstant());
     }
 
-    public static Value asJson(Timestamp value) throws DataException
+    public static Value asJson(Timestamp value)
     {
         throw new DataException(buildErrorMessage("json", value));
     }
 
-    public static Timestamp asTimestamp(Timestamp value) throws DataException
+    public static Timestamp asTimestamp(Timestamp value)
     {
         return value;
     }
