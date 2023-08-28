@@ -13,7 +13,7 @@ A filter plugin for Embulk to cast column type.
   - **timezone**: specify the timezone of the timestamp (string, default is default_timezone)
 - **default_timestamp_format**: default timestamp format (string, default is `%Y-%m-%d %H:%M:%S.%N %z`)
 - **default_timezone**: default timezone (string, default is `UTC`)
-* **stop_on_invalid_record**: stop bulk load transaction if a invalid record is found (boolean, default is `false)
+- **stop_on_invalid_record**: stop bulk load transaction if a invalid record is found (boolean, default is `false`)
 
 ## Example
 
