@@ -15,7 +15,7 @@ A filter plugin for Embulk to cast column type.
 - **default_timezone**: default timezone (string, default is `UTC`)
 - **stop_on_invalid_record**: stop bulk load transaction if a invalid record is found (boolean, default is `false`)
 
-## Example
+## Example (How to Use)
 
 See [example.csv](./example/example.csv) and [example.yml](./example/from_string.yml).
 
